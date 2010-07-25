@@ -22,7 +22,7 @@ except ImportError:
 
 
 NAMESPACE = 'bzr'
-MAIN_BRANCH = 'trunk'
+
 
 def die(message, *args):
   print >>sys.stderr, message % args
@@ -72,12 +72,31 @@ def short_branch_name(branch):
   return branch.replace('refs/heads/', '')
 
 
+def bzr_ref_name(branch):
+  return '%s/%s' % (NAMESPACE, branch)
+
+
+def branch_name(bzr_ref):
+  return bzr_ref[len(NAMESPACE) + 1:]
+
+
 def set_cfg(key, value):
   git(['config', '%s.%s' % (NAMESPACE, key), value])
 
 
 def get_cfg(key, **kwargs):
-  return git(['config', '%s.%s' % (NAMESPACE, key)]).strip()
+  kwargs.setdefault('error_ok', True)
+  return git(['config', '%s.%s' % (NAMESPACE, key)], **kwargs).strip()
+
+
+def branch_exists(branch):
+  branches = git(['branch', '-a'])
+  branches = branches.split('\n')
+  matcher = re.compile(r'\s%s$' % branch)
+  for x in branches:
+    if matcher.search(x):
+      return True
+  return False
 
 
 class Changelist(object):
@@ -133,11 +152,11 @@ class Changelist(object):
     return self._map_dir
 
 
-def export_bzr(branch, git_branch=None, cl=None):
+def export_bzr(bzr_ref, cl=None):
   if cl is None:
     cl = Changelist()
-  if git_branch is None:
-    git_branch = '%s/%s' % (NAMESPACE, branch)
+
+  branch = branch_name(bzr_ref)
 
   bzr_export = cl.map_dir('%s-bzr-export' % branch)
   git_import = cl.map_dir('%s-git-import' % branch)
@@ -157,14 +176,46 @@ def export_bzr(branch, git_branch=None, cl=None):
 
   bzr_proc = bzr(['fast-export'] + bzr_export_arg + [
                   '--export-marks=%s' % bzr_export,
-                  '--git-branch=%s' % git_branch,
+                  '--git-branch=%s' % bzr_ref,
                   cl.bzr_dir(branch)],
                  stdout=git_proc.stdin,
                  return_proc=True)
   bzr_proc.wait()
   git_proc.stdin.close()
   git_proc.wait()
-  return git_branch
+  return bzr_ref
+
+
+def export_git(branch, cl=None):
+  if cl is None:
+    cl = Changelist()
+  
+  git_export = cl.map_dir('%s-git-export' % branch)
+  bzr_import = cl.map_dir('%s-bzr-import' % branch)
+  
+  # TODO(termie): sanity checks
+  if os.path.exists(git_export):
+    git_export_arg = ['--import-marks=%s' % git_export]
+    bzr_import_arg = ['--import-marks=%s' % bzr_import]
+  else:
+    bzr_import_arg = git_export_arg = []
+  
+  # NOTE(termie): this happens in reverse because we're piping
+  bzr_proc = bzr(['fast-import'] + bzr_import_arg + [
+                  '--export-marks=%s' % bzr_import,
+                  '-',
+                  cl.bzr_dir(branch)],
+                 stdin=subprocess.PIPE,
+                 return_proc=True)
+
+  git_proc = git(['fast-export'] + git_export_arg + [
+                  '--export-marks=%s' % git_export,
+                  branch],
+                 stdout=bzr_proc.stdin,
+                 return_proc=True)
+  git_proc.wait()
+  bzr_proc.stdin.close()
+  bzr_proc.wait()
                 
 
 def cmd_clone(args):
@@ -183,9 +234,10 @@ def cmd_clone(args):
 
   target = os.path.abspath(target)
   branch = os.path.basename(target)
+  bzr_ref = bzr_ref_name(branch)
 
   if os.path.exists(target):
-    die('%s already exists', target)
+    die('Directory already exists: %s', target)
 
   git(['init', target])
   os.chdir(target)
@@ -198,588 +250,153 @@ def cmd_clone(args):
   
   # Initialize a bzr repo
   bzr(['init-repo', cl.bzr_dir()])
+
+  cmd_import([url, branch])
+
+  git(['checkout', branch]) 
+
+
+def cmd_push(args):
+  parser = optparse.OptionParser(usage='git lp push <url>')
+  parser.description = ('Effectively a bzr branch lp_url'
+                        ' but using fast-import')
+  (options, args) = parser.parse_args(args)
+
+  cl = Changelist()
   
+  upstream = None
+  if len(args):
+    upstream = args[0]
+
+  # Find the upstream from the tracking branch
+  bzr_ref = get_cfg('%s.bzr' % cl.branch())
+  if not upstream and not bzr_ref:
+    die('This branch has no associated bzr tracking branch')
+  
+  if bzr_ref:
+    known_upstream = get_cfg('%s.upstream' % bzr_ref)
+    if not upstream and not known_upstream:
+      die('No upstream found for this bzr tracking branch (%s) ... uh oh.' %
+          bzr_ref)
+  else:
+    known_upstream = None
+  
+  if known_upstream and (not upstream or upstream == known_upstream):
+    upstream = known_upstream
+
+    # Sync first
+    cmd_sync([bzr_ref])
+
+    # Check that we are a fast-forward
+    # Using the logic from http://github.com/kfish/git-bzr's implementation
+    revs = git(['rev-list', '--left-right', 'HEAD...%s' % bzr_ref])
+    updates_to_push = False
+    for line in revs:
+      if line.startswith('>'):
+        die('HEAD is not a fast-forward of %s. Merge before pushing.', bzr_ref)
+      if not updates_to_push and line.startswith('<'):
+        updates_to_push = True
+    if not updates_to_push:
+      die('Nothing to push. Commit something first')
+
+  branch = cl.branch()
+  bzr_ref = bzr_ref_name(branch)
+  export_git(branch, cl=cl)
+
+  root = cl.root_dir()
+  os.chdir(cl.bzr_dir(branch))
+  bzr(['push', upstream])
+
+  os.chdir(root)
+  set_cfg('%s.bzr' % branch, bzr_ref)
+  set_cfg('%s.upstream' % bzr_ref, upstream)
+  
+
+def cmd_sync(args):
+  parser = optparse.OptionParser(usage='git lp sync <bzr_ref>')
+  parser.description = ('Effectively a bzr branch lp_url'
+                        ' but using fast-import')
+  parser.add_option('--overwrite', action='store_true', dest='overwrite',
+                    help='overwrite tracking branch with remote copy')
+  (options, args) = parser.parse_args(args)
+
+  cl = Changelist()
+
+  bzr_ref = None
+  if len(args):
+    bzr_ref = args[0]
+
+  if not bzr_ref:
+    bzr_ref = get_cfg('%s.bzr' % cl.branch())
+  
+  if not bzr_ref:
+    die('Which bzr tracking branch do you want to sync?')
+
+  upstream = get_cfg('%s.upstream' % bzr_ref)
+  if not upstream:
+    die('No upstream found for bzr tracking branch: %s', bzr_ref)
+  
+  branch = branch_name(bzr_ref)
+
+  os.chdir(cl.bzr_dir(branch))
+  if options.overwrite:
+    params = ['pull', '--overwrite', upstream]
+  else:
+    params = ['pull', upstream]
+  bzr(params)
+  os.chdir(cl.root_dir())
+
+  export_bzr(bzr_ref, cl=cl)
+  
+
+def cmd_import(args):
+  parser = optparse.OptionParser(usage='git lp import <url> <target_branch>')
+  parser.description = ('Effectively a bzr branch lp_url'
+                        ' but using fast-import')
+  (options, args) = parser.parse_args(args)
+
+  # TODO(termie): command-line validation
+  url = args[0]
+  target = args[1]
+
+  # TODO(termie): sanity checking
+  if ':' not in url:
+    url = os.path.abspath(url)
+
+  branch = target
+  bzr_ref = bzr_ref_name(branch)
+
+  cl = Changelist()
+
+  if branch_exists(branch):
+    die('Branch already exists: %s', branch)
+
+  if branch_exists(bzr_ref):
+    die('Branch already exists: %s', bzr_ref)
+
   # Do the actual bzr fetch
   bzr(['branch', url, cl.bzr_dir(branch)])
  
   # Fast export from 
-  bzr_ref = export_bzr(branch, cl=cl)
-
-  git(['checkout', '-b', branch, bzr_ref]) 
+  export_bzr(bzr_ref, cl=cl)
+  
+  # Create a new local branch
+  # TODO(termie): does it make sense for this to be a --track?
+  git(['branch', branch, bzr_ref])
+  
   set_cfg('%s.bzr' % branch, bzr_ref)
   set_cfg('%s.upstream' % bzr_ref, url)
 
 
-
-
-def PushBzrBranch(url, bzr_branch=None):
-  cl = Changelist()
-
-  #if bzr(['info', '-q', url], exit_code=True):
-  #  die('Not a valid bzr url')
-
-  branch = cl.GetBranch()
-  if not bzr_branch:
-    bzr_branch = BzrUrlToBranchName(url)
-
-  # We have to make some fast-export stuff now
-  map_dir = GetMapDir()
-  bzr_dir = GetBzrDir()
-
-  trunk_bzr_branch = BzrUrlToBranchName(cl.GetTrunkUrl())
-
-  git_map = os.path.join(map_dir, '%s-git' % bzr_branch)
-  bzr_map = os.path.join(map_dir, '%s-bzr' % bzr_branch)
-  trunk_git_map = os.path.join(map_dir, '%s-git' % trunk_bzr_branch)
-  trunk_bzr_map = os.path.join(map_dir, '%s-bzr' % trunk_bzr_branch)
-  bzr_path = os.path.join(bzr_dir, bzr_branch)
-  
-  if not os.path.exists(map_dir):
-    die('No Map Dir?')
-  
-  if not os.path.exists(bzr_dir):
-    die('No Bzr Dir?')
-
-  if not os.path.exists(git_map) and not os.path.exists(bzr_map):
-    bzr(['branch', cl.GetTrunkUrl(), bzr_path])
-    
-    proc = git(['fast-export',
-                   '--export-marks=%s' % git_map,
-                   '--import-marks=%s' % trunk_git_map,
-                   branch],
-                  return_proc=True)
-    os.chdir(bzr_path)
-    out = bzr(['fast-import',
-                  '--export-marks=%s' % bzr_map,
-                  '-'],
-                 input=proc)
-    proc.wait()
-  elif os.path.exists(git_map) or os.path.exists(bzr_map):
-    print "Already seen it"
-    proc = git(['fast-export',
-                   '--export-marks=%s' % git_map,
-                   '--import-marks=%s' % trunk_git_map,
-                   branch],
-                  return_proc=True)
-    os.chdir(bzr_path)
-    out = bzr(['fast-import',
-                  #'--import-marks=%s' % bzr_map,
-                  '--export-marks=%s' % bzr_map,
-                  '-'],
-                 input=proc)
-    proc.wait()
-
-  bzr(['push', url])
-
-
-def CmdFetch(args):
-  # TODO(termie): check that we are in a git repo
-  parser = optparse.OptionParser(usage='git lp fetch <lp_url>')
-  parser.description = ('Effectively a bzr fetch lp_url'
-                        ' but using fast-import')
-  (options, args) = parser.parse_args(args)
-
-  cl = Changelist()
-
-  if len(args) == 0:
-    url = cl.GetUpstream()
-  elif len(args) == 1:
-    url = args[0]
-    # TEMPORARY FOR TESTING
-    #if not url.startswith('lp:'):
-    #  url = 'lp:' + url
-  else:
-    die('Need a single lp_url')
-  
-  if not url:
-    die('Need a fetch url')
-  
-  FetchBzrBranch(url)
-
-  git(['fetch', bzr_branch])
-
-
-
-
-def CmdPush(args):
-  parser = optparse.OptionParser(usage='git lp push <lp_url>')
-  parser.description = ('Effectively a bzr push lp_url'
-                        ' but using fast-import')
-  (options, args) = parser.parse_args(args)
-
-  cl = Changelist()
-
-  if len(args) == 0:
-    url = cl.GetUpstream()
-  elif len(args) == 1:
-    url = args[0]
-  else:
-    die('Need a single lp_url')
-  
-  bzr_branch = BzrUrlToBranchName(url)
-  
-  PushBzrBranch(url)
-
-
-
-
-def CmdStatus(args):
-  parser = optparse.OptionParser(usage='git cl status [options]')
-  parser.add_option('--field', help='print only specific field (desc|id|url)')
-  (options, args) = parser.parse_args(args)
-
-  # TODO: maybe make show_branches a flag if necessary.
-  show_branches = not options.field
-
-  if show_branches:
-    branches = git(['for-each-ref', '--format=%(refname)', 'refs/heads'])
-    if branches:
-      print 'Branches associated with reviews:'
-      for branch in sorted(branches.splitlines()):
-        cl = Changelist(branchref=branch)
-        print "  %10s: %s" % (cl.GetBranch(), cl.GetIssue())
-
-  cl = Changelist()
-  if options.field:
-    if options.field.startswith('desc'):
-      print cl.GetDescription()
-    elif options.field == 'id':
-      print cl.GetIssue()
-    elif options.field == 'url':
-      print cl.GetIssueURL()
-  else:
-    print
-    print 'Current branch:',
-    if not cl.GetIssue():
-      print 'no issue assigned.'
-      return 0
-    print cl.GetBranch()
-    print 'Issue number:', cl.GetIssue(), '(%s)' % cl.GetIssueURL()
-    print 'Issue description:'
-    print cl.GetDescription(pretty=True)
-
-
-def CmdIssue(args):
-  parser = optparse.OptionParser(usage='git cl issue [issue_number]')
-  parser.description = ('Set or display the current code review issue. ' +
-                        'Pass issue number 0 to clear the current issue.')
-  (options, args) = parser.parse_args(args)
-
-  cl = Changelist()
-  if len(args) > 0:
-    cl.SetIssue(int(args[0]))
-  print 'Issue number:', cl.GetIssue(), '(%s)' % cl.GetIssueURL()
-
-
-def UserEditedLog(starting_text):
-  """Given some starting text, let the user edit it and return the result."""
-  editor = os.getenv('EDITOR', 'vi')
-
-  (file_handle, filename) = tempfile.mkstemp()
-  file = os.fdopen(file_handle, 'w')
-  file.write(starting_text)
-  file.close()
-
-  ret = subprocess.call(editor + ' ' + filename, shell=True)
-  if ret != 0:
-    os.remove(filename)
-    return
-
-  file = open(filename)
-  text = file.read()
-  file.close()
-  os.remove(filename)
-  stripcomment_re = re.compile(r'^#.*$', re.MULTILINE)
-  return stripcomment_re.sub('', text).strip()
-
-
-def RunHook(hook, upstream_branch='origin', error_ok=False):
-  """Run a given hook if it exists.  By default, we fail on errors."""
-  hook = '%s/%s' % (settings.GetRoot(), hook)
-  if not os.path.exists(hook):
-    return
-  output = run_command([hook, upstream_branch], error_ok).strip()
-  if output != '':
-    print output
-
-
-def CmdPresubmit(args):
-  """Reports what presubmit checks on the change would report."""
-  parser = optparse.OptionParser(
-      usage='git cl presubmit [options]')
-  (options, args) = parser.parse_args(args)
-
-  if git(['diff-index', 'HEAD']):
-    print 'Cannot presubmit with a dirty tree.  You must commit locally first.'
-    return 1
-
-  print '*** Presubmit checks for UPLOAD would report: ***'
-  RunHook(PREUPLOAD_HOOK, error_ok=True)
-
-  print '*** Presubmit checks for DCOMMIT would report: ***'
-  RunHook(PREDCOMMIT_HOOK, error_ok=True)
-
-
-def CmdUpload(args):
-  parser = optparse.OptionParser(
-      usage='git cl upload [options] [args to "git diff"]')
-  parser.add_option('--bypass-hooks', action='store_true', dest='bypass_hooks',
-                    help='bypass upload presubmit hook')
-  parser.add_option('-m', dest='message', help='message for patch')
-  parser.add_option('-r', '--reviewers',
-                    help='reviewer email addresses')
-  parser.add_option('--send-mail', action='store_true',
-                    help='send email to reviewer immediately')
-  (options, args) = parser.parse_args(args)
-
-  if git(['diff-index', 'HEAD']):
-    print 'Cannot upload with a dirty tree.  You must commit locally first.'
-    return 1
-
-  cl = Changelist()
-  if args:
-    base_branch = args[0]
-  else:
-    # Default to diffing against the "upstream" branch.
-    base_branch = cl.GetUpstreamBranch()
-    args = [base_branch + "..."]
-
-  if not options.bypass_hooks:
-    RunHook(PREUPLOAD_HOOK, upstream_branch=base_branch, error_ok=False)
-
-  # --no-ext-diff is broken in some versions of Git, so try to work around
-  # this by overriding the environment (but there is still a problem if the
-  # git config key "diff.external" is used).
-  env = os.environ.copy()
-  if 'GIT_EXTERNAL_DIFF' in env: del env['GIT_EXTERNAL_DIFF']
-  subprocess.call(['git', 'diff', '--no-ext-diff', '--stat', '-M'] + args,
-                  env=env)
-
-  upload_args = ['--assume_yes']  # Don't ask about untracked files.
-  upload_args.extend(['--server', settings.GetServer()])
-  if options.reviewers:
-    upload_args.extend(['--reviewers', options.reviewers])
-  upload_args.extend(['--cc', settings.GetCCList()])
-  if options.message:
-    upload_args.extend(['--message', options.message])
-  if options.send_mail:
-    if not options.reviewers:
-      die("Must specify reviewers to send email.")
-    upload_args.append('--send_mail')
-  if cl.GetIssue():
-    upload_args.extend(['--issue', cl.GetIssue()])
-    print ("This branch is associated with issue %s. "
-           "Adding patch to that issue." % cl.GetIssue())
-  else:
-    # Construct a description for this change from the log.
-    # We need to convert diff options to log options.
-    log_args = []
-    if len(args) == 1 and not args[0].endswith('.'):
-      log_args = [args[0] + '..']
-    elif len(args) == 1 and args[0].endswith('...'):
-      log_args = [args[0][:-1]]
-    elif len(args) == 2:
-      log_args = [args[0] + '..' + args[1]]
-    else:
-      log_args = args[:]  # Hope for the best!
-    desc = git(['log', '--pretty=format:%s\n\n%b'] + log_args)
-    initial_text = """# Enter a description of the change.
-# This will displayed on the codereview site.
-# The first line will also be used as the subject of the review."""
-    desc = UserEditedLog(initial_text + '\n' + desc)
-    if not desc:
-      print "Description empty; aborting."
-      return 1
-    subject = desc.splitlines()[0]
-    upload_args.extend(['--message', subject])
-    upload_args.extend(['--description', desc])
-  issue, patchset = upload.RealMain(['upload'] + upload_args + args)
-  if not cl.GetIssue():
-    cl.SetIssue(issue)
-  cl.SetPatchset(patchset)
-
-
-def SendUpstream(args, cmd='dcommit'):
-  """Common code for CmdPush and CmdDCommit
-
-  Squashed commit into a single.
-  Updates changelog with metadata (e.g. pointer to review).
-  Pushes/dcommits the code upstream.
-  Updates review and closes.
-  """
-  parser = optparse.OptionParser(
-      usage='git cl %s [options] [upstream branch to apply against]' % cmd)
-  parser.add_option('--bypass-hooks', action='store_true', dest='bypass_hooks',
-                    help='bypass upload presubmit hook')
-  parser.add_option('-m', dest='message',
-                    help="override review description")
-  parser.add_option('-f', action='store_true', dest='force',
-                    help="force yes to questions (don't prompt)")
-  parser.add_option('-c', dest='contributor',
-                    help="external contributor for patch (appended to " +
-                         "description)")
-  parser.add_option('--tbr', action='store_true', dest='tbr',
-                    help="short for 'to be reviewed', commit branch " +
-                         "even without uploading for review")
-  (options, args) = parser.parse_args(args)
-
-  cl = Changelist()
-
-  if cmd == 'dcommit' and args:
-    print 'dcommit always commits all changes you have since trunk.'
-    print 'Do not specify a base branch to upload against.'
-    return 1
-
-  base_branch = cl.GetUpstreamBranch()
-
-  if git(['diff-index', 'HEAD']):
-    print 'Cannot %s with a dirty tree.  You must commit locally first.' % cmd
-    return 1
-
-  # This rev-list syntax means "show all commits not in my branch that
-  # are in base_branch".
-  upstream_commits = git(['rev-list', '^' + cl.GetBranchRef(),
-                             base_branch]).splitlines()
-  if upstream_commits:
-    print ('Base branch "%s" has %d commits '
-           'not in this branch.' % (base_branch, len(upstream_commits)))
-    print 'Run "git merge %s" before attempting to %s.' % (base_branch, cmd)
-    return 1
-
-  if not options.force and not options.bypass_hooks:
-    RunHook(PREDCOMMIT_HOOK, upstream_branch=base_branch, error_ok=False)
-
-    if cmd == 'dcommit':
-      # Check the tree status if the tree status URL is set.
-      status = GetTreeStatus()
-      if 'closed' == status:
-        print ('The tree is closed.  Please wait for it to reopen. Use '
-               '"git cl dcommit -f" to commit on a closed tree.')
-        return 1
-      elif 'unknown' == status:
-        print ('Unable to determine tree status.  Please verify manually and '
-               'use "git cl dcommit -f" to commit on a closed tree.')
-
-  description = options.message
-  if not options.tbr:
-    # It is important to have these checks early.  Not only for user
-    # convenience, but also because the cl object then caches the correct values
-    # of these fields even as we're juggling branches for setting up the commit.
-    if not cl.GetIssue():
-      print 'Current issue unknown -- has this branch been uploaded?'
-      print 'Use --tbr to commit without review.'
-      return 1
-
-    if not description:
-      description = cl.GetDescription()
-
-    if not description:
-      print 'No description set.'
-      print 'Visit %s/edit to set it.' % (cl.GetIssueURL())
-      return 1
-
-    description += "\n\nReview URL: %s" % cl.GetIssueURL()
-  else:
-    # Submitting TBR.  Get a description now.
-    if not description:
-      description = UserEditedLog('TBR: ')
-
-    if not description:
-      print "Description empty; aborting."
-      return 1
-
-  if options.contributor:
-    description += "\nPatch from %s." % options.contributor
-  print 'Description:', repr(description)
-
-  branches = [base_branch, cl.GetBranchRef()]
-  if not options.force:
-    subprocess.call(['git', 'diff', '--stat'] + branches)
-    raw_input("About to commit; enter to confirm.")
-
-  # We want to squash all this branch's commits into one commit with the
-  # proper description.
-  # We do this by doing a "merge --squash" into a new commit branch, then
-  # dcommitting that.
-  MERGE_BRANCH = 'git-cl-commit'
-  # Delete the merge branch if it already exists.
-  if git(['show-ref', '--quiet', '--verify', 'refs/heads/' + MERGE_BRANCH],
-            exit_code=True) == 0:
-    git(['branch', '-D', MERGE_BRANCH])
-
-  # We might be in a directory that's present in this branch but not in the
-  # trunk.  Move up to the top of the tree so that git commands that expect a
-  # valid CWD won't fail after we check out the merge branch.
-  rel_base_path = git(['rev-parse', '--show-cdup']).strip()
-  if rel_base_path:
-    os.chdir(rel_base_path)
-
-  # Stuff our change into the merge branch.
-  # We wrap in a try...finally block so if anything goes wrong,
-  # we clean up the branches.
-  try:
-    git(['checkout', '-q', '-b', MERGE_BRANCH, base_branch])
-    git(['merge', '--squash', cl.GetBranchRef()])
-    git(['commit', '-m', description])
-    if cmd == 'push':
-      # push the merge branch.
-      remote, branch = cl.GetUpstreamTuple()
-      output = git(['push', remote, 'HEAD:%s' % branch], exit_code=True)
-    else:
-      # dcommit the merge branch.
-      output = git(['svn', 'dcommit', '--no-rebase'])
-  finally:
-    # And then swap back to the original branch and clean up.
-    git(['checkout', '-q', cl.GetBranch()])
-    git(['branch', '-D', MERGE_BRANCH])
-
-  if cl.has_issue:
-    if cmd == 'dcommit' and output.find("Committed r") != -1:
-      print "Closing issue " \
-          "(you may be prompted for your codereview password)..."
-      viewvc_url = settings.GetViewVCUrl()
-      if viewvc_url:
-        revision = re.compile(".*?\nCommitted r(\d+)",
-                              re.DOTALL).match(output).group(1)
-        cl.description = (cl.description +
-                          "\n\nCommitted: " + viewvc_url + revision)
-      cl.CloseIssue()
-      cl.SetIssue(0)
-    elif cmd == 'push' and output == 0:
-      print "Closing issue " \
-          "(you may be prompted for your codereview password)..."
-      cl.CloseIssue()
-      cl.SetIssue(0)
-
-
-def CmdDCommit(args):
-  return SendUpstream(args, cmd='dcommit')
-
-
-
-def CmdPatch(args):
-  parser = optparse.OptionParser(usage=('git cl patch [options] '
-                                        '<patch url or issue id>'))
-  parser.add_option('-b', dest='newbranch',
-                    help='create a new branch off trunk for the patch')
-  parser.add_option('-f', action='store_true', dest='force',
-                    help='with -b, clobber any existing branch')
-  parser.add_option('--reject', action='store_true', dest='reject',
-                    help='allow failed patches and spew .rej files')
-  parser.add_option('-n', '--no-commit', action='store_true', dest='nocommit',
-                    help="don't commit after patch applies")
-  (options, args) = parser.parse_args(args)
-  if len(args) != 1:
-    return parser.print_help()
-  input = args[0]
-
-  if re.match(r'\d+', input):
-    # Input is an issue id.  Figure out the URL.
-    issue = input
-    fetch = "curl --silent http://%s/%s" % (settings.GetServer(), issue)
-    grep = "grep -E -o '/download/issue[0-9]+_[0-9]+.diff'"
-    pipe = subprocess.Popen("%s | %s" % (fetch, grep), shell=True,
-                            stdout=subprocess.PIPE)
-    path = pipe.stdout.read().strip()
-    url = 'http://%s%s' % (settings.GetServer(), path)
-  else:
-    # Assume it's a URL to the patch.
-    match = re.match(r'http://.*?/issue(\d+)_\d+.diff', input)
-    if match:
-      issue = match.group(1)
-      url = input
-    else:
-      print "Must pass an issue ID or full URL for 'Download raw patch set'"
-      return 1
-
-  if options.newbranch:
-    if options.force:
-      git(['branch', '-D', options.newbranch], error_ok=True)
-    git(['checkout', '-b', options.newbranch])
-
-  # Switch up to the top-level directory, if necessary, in preparation for
-  # applying the patch.
-  top = git(['rev-parse', '--show-cdup']).strip()
-  if top:
-    os.chdir(top)
-
-  # Construct a pipeline to feed the patch into "git apply".
-  # We use "git apply" to apply the patch instead of "patch" so that we can
-  # pick up file adds.
-  # 1) Fetch the patch.
-  fetch = "curl --silent %s" % url
-  # 2) Munge the patch.
-  # Git patches have a/ at the beginning of source paths.  We strip that out
-  # with a sed script rather than the -p flag to patch so we can feed either
-  # Git or svn-style patches into the same apply command.
-  gitsed = "sed -e 's|^--- a/|--- |; s|^+++ b/|+++ |'"
-  # 3) Apply the patch.
-  # The --index flag means: also insert into the index (so we catch adds).
-  apply = "git apply --index -p0"
-  if options.reject:
-    apply += " --reject"
-  subprocess.check_call(' | '.join([fetch, gitsed, apply]), shell=True)
-
-  # If we had an issue, commit the current state and register the issue.
-  if not options.nocommit:
-    git(['commit', '-m', 'patch from issue %s' % issue])
-    cl = Changelist()
-    cl.SetIssue(issue)
-    print "Committed patch."
-  else:
-    print "Patch applied to index."
-
-def CmdRebase(args):
-  # Provide a wrapper for git svn rebase to help avoid accidental
-  # git svn dcommit.
-  git(['svn', 'rebase'], redirect_stdout=False)
-
-def GetTreeStatus():
-  """Fetches the tree status and returns either 'open', 'closed',
-  'unknown' or 'unset'."""
-  url = settings.GetTreeStatusUrl(error_ok=True)
-  if url:
-    status = urllib2.urlopen(url).read().lower()
-    if status.find('closed') != -1 or status == '0':
-      return 'closed'
-    elif status.find('open') != -1 or status == '1':
-      return 'open'
-    return 'unknown'
-
-  return 'unset'
-
-def CmdTreeStatus(args):
-  status = GetTreeStatus()
-  if 'unset' == status:
-    print 'You must configure your tree status URL by running "git cl config".'
-    return 2
-
-  print "The tree is %s" % status
-  if status != 'open':
-    return 1
-  return 0
-
-def CmdUpstream(args):
-  cl = Changelist()
-  print cl.GetUpstreamBranch()
-
 COMMANDS = [
-  ('clone',  'clone a bazaar repo', cmd_clone),
-  ('fetch',  'fetch updates from branch',            CmdFetch),
-  ('push',  'clone a bazaar repo',            CmdPush),
-  ('dcommit', 'commit the current changelist via git-svn',   CmdDCommit),
-  ('issue',   'show/set current branch\'s issue number',     CmdIssue),
-  ('patch',   'patch in a code review',                      CmdPatch),
-  ('presubmit', 'run presubmit tests on the current changelist', CmdPresubmit),
-  ('rebase',  'rebase current branch on top of svn repo',    CmdRebase),
-  ('status',  'show status of changelists',                  CmdStatus),
-  ('tree',    'show the status of the tree',                 CmdTreeStatus),
-  ('upload',  'upload the current changelist to codereview', CmdUpload),
-  ('upstream', 'print the name of the upstream branch, if any', CmdUpstream),
+  ('clone', 'clone a bzr repo', cmd_clone),
+  ('push', 'push to a bzr repo', cmd_push),
+  ('sync', 'sync bzr tracking branch to remote', cmd_sync),
+  ('import', 'import another bzr branch', cmd_import),
 ]
 
 
-def Usage(name):
+def usage(name):
   print 'usage: %s <command>' % name
   print 'commands are:'
   for name, desc, _ in COMMANDS:
@@ -789,14 +406,14 @@ def Usage(name):
 
 def main(argv):
   if len(argv) < 2:
-    Usage(argv[0])
+    usage(argv[0])
 
   command = argv[1]
   for name, _, func in COMMANDS:
     if name == command:
       return func(argv[2:])
   print 'unknown command: %s' % command
-  Usage(argv[0])
+  usage(argv[0])
 
 
 if __name__ == '__main__':
