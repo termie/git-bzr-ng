@@ -77,6 +77,7 @@ Requirements
 * git (some recent version)
 * bzr 2.2+ (pip install bzr)
 * bzr-fastimport (bzr branch lp:bzr-fastimport)
+* You also need to put the git-bzr script somewhere in your path
 
 
 Troubleshooting
@@ -89,5 +90,5 @@ old version of bzr. You need bzr 2.2+
 Kind thanks to
 --------------
 
- * Evan Martin's git-cl: http://neugierig.org/software/git/?r=git-cl
- * kfish's git-bzr: http://github.com/kfish/git-bzr
+* Evan Martin's git-cl: http://neugierig.org/software/git/?r=git-cl
+* kfish's git-bzr: http://github.com/kfish/git-bzr
