@@ -3,22 +3,11 @@
 # Copyright (C) 2008 Evan Martin <martine@danga.com>
 # Copyright (C) 2010 Andy Smith <andy@term.ie>
 
-import getpass
 import optparse
 import os
 import re
-import readline
-import string
 import subprocess
 import sys
-import tempfile
-import textwrap
-import urllib2
-
-try:
-  import readline
-except ImportError:
-  pass
 
 
 NAMESPACE = 'bzr'
@@ -33,8 +22,7 @@ def run_command(cmd, error_ok=False, error_message=None, exit_code=False,
                redirect_stdout=True, return_proc=False, stdout=None,
                stdin=None):
   # Useful for debugging:
-  print >>sys.stderr, ' '.join(cmd)
-  #raw_input()
+  # print >>sys.stderr, ' '.join(cmd)
   if redirect_stdout and stdout is None:
     stdout = subprocess.PIPE
 
@@ -216,7 +204,20 @@ def export_git(branch, cl=None):
   git_proc.wait()
   bzr_proc.stdin.close()
   bzr_proc.wait()
-                
+
+
+def init_repo(cl=None):
+  if cl is None:
+    cl = Changelist()
+  
+  if not os.path.exists(cl.bzr_dir()):
+    os.makedirs(cl.bzr_dir())
+    # Initialize a bzr repo
+    bzr(['init-repo', cl.bzr_dir()])
+
+  if not os.path.exists(cl.map_dir()):
+    os.makedirs(cl.map_dir())
+
 
 def cmd_clone(args):
   parser = optparse.OptionParser(usage='git lp clone <url> <target>')
@@ -243,13 +244,9 @@ def cmd_clone(args):
   os.chdir(target)
 
   cl = Changelist()
-  
+
   # Ensure our directories exist
-  os.makedirs(cl.bzr_dir())
-  os.makedirs(cl.map_dir())
-  
-  # Initialize a bzr repo
-  bzr(['init-repo', cl.bzr_dir()])
+  init_repo(cl)
 
   cmd_import([url, branch])
 
@@ -262,7 +259,11 @@ def cmd_push(args):
                         ' but using fast-import')
   (options, args) = parser.parse_args(args)
 
+
   cl = Changelist()
+
+  # Ensure our directories exist
+  init_repo(cl)
   
   upstream = None
   if len(args):
@@ -322,6 +323,9 @@ def cmd_sync(args):
 
   cl = Changelist()
 
+  # Ensure our directories exist
+  init_repo(cl)
+
   bzr_ref = None
   if len(args):
     bzr_ref = args[0]
@@ -367,6 +371,9 @@ def cmd_import(args):
   bzr_ref = bzr_ref_name(branch)
 
   cl = Changelist()
+
+  # Ensure our directories exist
+  init_repo(cl)
 
   if branch_exists(branch):
     die('Branch already exists: %s', branch)
