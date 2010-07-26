@@ -27,11 +27,11 @@ def run_command(cmd, error_ok=False, error_message=None, exit_code=False,
     stdout = subprocess.PIPE
 
   proc = subprocess.Popen(cmd, stdout=stdout, stdin=stdin)
-  
+
   if return_proc:
     return proc
 
-  if stdout == subprocess.PIPE: 
+  if stdout == subprocess.PIPE:
     output = proc.communicate()[0]
   else:
     output = ''
@@ -148,14 +148,14 @@ def export_bzr(bzr_ref, cl=None):
 
   bzr_export = cl.map_dir('%s-bzr-export' % branch)
   git_import = cl.map_dir('%s-git-import' % branch)
-  
+
   # TODO(termie): sanity checks
   if os.path.exists(bzr_export):
     bzr_export_arg = ['--import-marks=%s' % bzr_export]
     git_import_arg = ['--import-marks=%s' % git_import]
   else:
     bzr_export_arg = git_import_arg = []
-  
+
   # NOTE(termie): this happens in reverse because we're piping
   git_proc = git(['fast-import'] + git_import_arg + [
                   '--export-marks=%s' % git_import],
@@ -177,17 +177,17 @@ def export_bzr(bzr_ref, cl=None):
 def export_git(branch, cl=None):
   if cl is None:
     cl = Changelist()
-  
+
   git_export = cl.map_dir('%s-git-export' % branch)
   bzr_import = cl.map_dir('%s-bzr-import' % branch)
-  
+
   # TODO(termie): sanity checks
   if os.path.exists(git_export):
     git_export_arg = ['--import-marks=%s' % git_export]
     bzr_import_arg = ['--import-marks=%s' % bzr_import]
   else:
     bzr_import_arg = git_export_arg = []
-  
+
   # NOTE(termie): this happens in reverse because we're piping
   bzr_proc = bzr(['fast-import'] + bzr_import_arg + [
                   '--export-marks=%s' % bzr_import,
@@ -209,7 +209,7 @@ def export_git(branch, cl=None):
 def init_repo(cl=None):
   if cl is None:
     cl = Changelist()
-  
+
   if not os.path.exists(cl.bzr_dir()):
     os.makedirs(cl.bzr_dir())
     # Initialize a bzr repo
@@ -217,7 +217,6 @@ def init_repo(cl=None):
 
   if not os.path.exists(cl.map_dir()):
     os.makedirs(cl.map_dir())
-
 
 def cmd_clone(args):
   parser = optparse.OptionParser(usage='git lp clone <url> <target>')
@@ -250,7 +249,7 @@ def cmd_clone(args):
 
   cmd_import([url, branch])
 
-  git(['checkout', branch]) 
+  git(['checkout', branch])
 
 
 def cmd_push(args):
@@ -264,7 +263,7 @@ def cmd_push(args):
 
   # Ensure our directories exist
   init_repo(cl)
-  
+
   upstream = None
   if len(args):
     upstream = args[0]
@@ -273,7 +272,7 @@ def cmd_push(args):
   bzr_ref = get_cfg('%s.bzr' % cl.branch())
   if not upstream and not bzr_ref:
     die('This branch has no associated bzr tracking branch')
-  
+
   if bzr_ref:
     known_upstream = get_cfg('%s.upstream' % bzr_ref)
     if not upstream and not known_upstream:
@@ -281,7 +280,7 @@ def cmd_push(args):
           bzr_ref)
   else:
     known_upstream = None
-  
+
   if known_upstream and (not upstream or upstream == known_upstream):
     upstream = known_upstream
 
@@ -311,7 +310,7 @@ def cmd_push(args):
   os.chdir(root)
   set_cfg('%s.bzr' % branch, bzr_ref)
   set_cfg('%s.upstream' % bzr_ref, upstream)
-  
+
 
 def cmd_sync(args):
   parser = optparse.OptionParser(usage='git lp sync <bzr_ref>')
@@ -332,14 +331,14 @@ def cmd_sync(args):
 
   if not bzr_ref:
     bzr_ref = get_cfg('%s.bzr' % cl.branch())
-  
+
   if not bzr_ref:
     die('Which bzr tracking branch do you want to sync?')
 
   upstream = get_cfg('%s.upstream' % bzr_ref)
   if not upstream:
     die('No upstream found for bzr tracking branch: %s', bzr_ref)
-  
+
   branch = branch_name(bzr_ref)
 
   os.chdir(cl.bzr_dir(branch))
@@ -351,7 +350,7 @@ def cmd_sync(args):
   os.chdir(cl.root_dir())
 
   export_bzr(bzr_ref, cl=cl)
-  
+
 
 def cmd_import(args):
   parser = optparse.OptionParser(usage='git lp import <url> <target_branch>')
@@ -383,14 +382,14 @@ def cmd_import(args):
 
   # Do the actual bzr fetch
   bzr(['branch', url, cl.bzr_dir(branch)])
- 
-  # Fast export from 
+
+  # Fast export from
   export_bzr(bzr_ref, cl=cl)
-  
+
   # Create a new local branch
   # TODO(termie): does it make sense for this to be a --track?
   git(['branch', branch, bzr_ref])
-  
+
   set_cfg('%s.bzr' % branch, bzr_ref)
   set_cfg('%s.upstream' % bzr_ref, url)
 
