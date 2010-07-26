@@ -219,7 +219,7 @@ def init_repo(cl=None):
     os.makedirs(cl.map_dir())
 
 def cmd_clone(args):
-  parser = optparse.OptionParser(usage='git lp clone <url> <target>')
+  parser = optparse.OptionParser(usage='git bzr clone <url> <target>')
   parser.description = ('Effectively a bzr branch lp_url'
                         ' but using fast-import')
   (options, args) = parser.parse_args(args)
@@ -353,7 +353,7 @@ def cmd_sync(args):
 
 
 def cmd_import(args):
-  parser = optparse.OptionParser(usage='git lp import <url> <target_branch>')
+  parser = optparse.OptionParser(usage='git bzr import <url> <target_branch>')
   parser.description = ('Effectively a bzr branch lp_url'
                         ' but using fast-import')
   (options, args) = parser.parse_args(args)
