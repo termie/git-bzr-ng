@@ -52,20 +52,7 @@ Example usage
   $ git bzr import lp:~vishvananda/nova/fix-part fix-part
   $ git diff touch_branch
 
-Disclaimer
-----------
-
-Due to some quirks in fast-import / fast-export it looks like you can currently
-only push in a "write-only" way, meaning from your initial push of a new branch
-you can't merge any further bzr commits in (git and bzr seem to be fighting
-over how to name the commit), so you won't be able to push from any branches
-you have pulled changes in from (this goes for the initial cloned branch, too).
-
-The examples above still work fine, and you can push multiple times to a pushed
-branch, you just can't merge histories :/
-
-I am working on resolving this quicly because it is quite annoying for complex
-projects.
+See test.sh for even more examples
 
 
 Extra Notes
