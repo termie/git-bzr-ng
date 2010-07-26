@@ -22,7 +22,7 @@ def run_command(cmd, error_ok=False, error_message=None, exit_code=False,
                redirect_stdout=True, return_proc=False, stdout=None,
                stdin=None):
   # Useful for debugging:
-  # print >>sys.stderr, ' '.join(cmd)
+  #print >>sys.stderr, ' '.join(cmd)
   if redirect_stdout and stdout is None:
     stdout = subprocess.PIPE
 
@@ -187,7 +187,7 @@ def export_git(branch, cl=None):
     bzr_import_arg = ['--import-marks=%s' % bzr_import]
   else:
     bzr_import_arg = git_export_arg = []
-
+  
   # NOTE(termie): this happens in reverse because we're piping
   bzr_proc = bzr(['fast-import'] + bzr_import_arg + [
                   '--export-marks=%s' % bzr_import,
@@ -218,10 +218,10 @@ def init_repo(cl=None):
   if not os.path.exists(cl.map_dir()):
     os.makedirs(cl.map_dir())
 
+
 def cmd_clone(args):
-  parser = optparse.OptionParser(usage='git bzr clone <url> <target>')
-  parser.description = ('Effectively a bzr branch lp_url'
-                        ' but using fast-import')
+  parser = optparse.OptionParser(usage='git bzr clone <url> [<target>]')
+  parser.description = ('Effectively a bzr branch <url>')
   (options, args) = parser.parse_args(args)
 
   # TODO(termie): command-line validation
@@ -256,11 +256,9 @@ def cmd_clone(args):
 
 
 def cmd_push(args):
-  parser = optparse.OptionParser(usage='git lp push <url>')
-  parser.description = ('Effectively a bzr branch lp_url'
-                        ' but using fast-import')
+  parser = optparse.OptionParser(usage='git bzr push <url>')
+  parser.description = ('Effectively a bzr push <url>')
   (options, args) = parser.parse_args(args)
-
 
   cl = Changelist()
 
@@ -316,9 +314,8 @@ def cmd_push(args):
 
 
 def cmd_sync(args):
-  parser = optparse.OptionParser(usage='git lp sync <bzr_ref>')
-  parser.description = ('Effectively a bzr branch lp_url'
-                        ' but using fast-import')
+  parser = optparse.OptionParser(usage='git bzr sync <bzr_branch>')
+  parser.description = ('Sync a bzr tracking branch (bzr/*) with remote')
   parser.add_option('--overwrite', action='store_true', dest='overwrite',
                     help='overwrite tracking branch with remote copy')
   (options, args) = parser.parse_args(args)
@@ -356,9 +353,8 @@ def cmd_sync(args):
 
 
 def cmd_import(args):
-  parser = optparse.OptionParser(usage='git bzr import <url> <target_branch>')
-  parser.description = ('Effectively a bzr branch lp_url'
-                        ' but using fast-import')
+  parser = optparse.OptionParser(usage='git bzr import <url> <new_branch>')
+  parser.description = ('Effectively a bzr branch <url>, but git-style')
   (options, args) = parser.parse_args(args)
 
   # TODO(termie): command-line validation
@@ -404,7 +400,7 @@ COMMANDS = [
   ('clone', 'clone a bzr repo', cmd_clone),
   ('push', 'push to a bzr repo', cmd_push),
   ('sync', 'sync bzr tracking branch to remote', cmd_sync),
-  ('import', 'import another bzr branch', cmd_import),
+  ('import', 'import a bzr branch as a new git branch', cmd_import),
 ]
 
 
