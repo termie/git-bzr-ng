@@ -21,7 +21,7 @@ Example usage
 
   # result -> 
   #   bzr/nova
-  # * master
+  # * nova
   
   Make a new branch
   
@@ -43,7 +43,7 @@ Example usage
   Sync is a slow operation the first time, like push.
   They both speed up after they've done it once for a given branch.
 
-  $ git checkout master
+  $ git checkout nova
   $ git bzr sync
   $ git diff bzr/nova
 
@@ -59,12 +59,13 @@ Due to some quirks in fast-import / fast-export it looks like you can currently
 only push in a "write-only" way, meaning from your initial push of a new branch
 you can't merge any further bzr commits in (git and bzr seem to be fighting
 over how to name the commit), so you won't be able to push from any branches
-you have pulled changes in from (this goes for master, too).
+you have pulled changes in from (this goes for the initial cloned branch, too).
 
 The examples above still work fine, and you can push multiple times to a pushed
 branch, you just can't merge histories :/
 
-I am working on resolving this currently because it is quite annoying.
+I am working on resolving this quicly because it is quite annoying for complex
+projects.
 
 
 Extra Notes
