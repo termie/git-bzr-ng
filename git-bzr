@@ -226,7 +226,10 @@ def cmd_clone(args):
 
   # TODO(termie): command-line validation
   url = args[0]
-  target = args[1]
+  if len(args) == 1:
+    target = url.rpartition(':')[2].rpartition('/')[2]
+  else:
+    target = args[1]
 
   # TODO(termie): sanity checking
   if ':' not in url:
@@ -360,7 +363,10 @@ def cmd_import(args):
 
   # TODO(termie): command-line validation
   url = args[0]
-  target = args[1]
+  if len(args) == 1:
+    target = url.rpartition(':')[2].rpartition('/')[2]
+  else:
+    target = args[1]
 
   # TODO(termie): sanity checking
   if ':' not in url:
