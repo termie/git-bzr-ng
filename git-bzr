@@ -180,18 +180,19 @@ def export_bzr(bzr_ref, cl=None):
     #       this may have to be removed if bzr fast-export changes its format
     unrewrite_bzr_marks_file(bzr_marks)
 
-    bzr_export_arg = ['--import-marks=%s' % bzr_marks]
+    bzr_import_arg = ['--import-marks=%s' % bzr_marks]
     git_import_arg = ['--import-marks=%s' % git_marks]
   else:
-    bzr_export_arg = git_import_arg = []
+    bzr_import_arg = git_import_arg = []
 
   # NOTE(termie): this happens in reverse because we're piping
   git_proc = git(['fast-import'] + git_import_arg + [
+                  '--quiet',
                   '--export-marks=%s' % git_marks],
                  stdin=subprocess.PIPE,
                  return_proc=True)
 
-  bzr_proc = bzr(['fast-export'] + bzr_export_arg + [
+  bzr_proc = bzr(['fast-export'] + bzr_import_arg + [
                   '--export-marks=%s' % bzr_marks,
                   '--git-branch=%s' % bzr_ref,
                   cl.bzr_dir(branch)],
@@ -216,20 +217,20 @@ def export_git(branch, cl=None):
     #       that git uses
     #       this may have to be removed if bzr fast-export changes its format
     rewrite_bzr_marks_file(bzr_marks)
-    git_marks_arg = ['--import-marks=%s' % git_marks]
-    bzr_marks_arg = ['--import-marks=%s' % bzr_marks]
+    git_import_arg = ['--import-marks=%s' % git_marks]
+    bzr_import_arg = ['--import-marks=%s' % bzr_marks]
   else:
-    bzr_marks_arg = git_marks_arg = []
+    bzr_import_arg = git_import_arg = []
   
   # NOTE(termie): this happens in reverse because we're piping
-  bzr_proc = bzr(['fast-import'] + bzr_marks_arg + [
+  bzr_proc = bzr(['fast-import'] + bzr_import_arg + [
                   '--export-marks=%s' % bzr_marks,
                   '-',
                   cl.bzr_dir(branch)],
                  stdin=subprocess.PIPE,
                  return_proc=True)
 
-  git_proc = git(['fast-export'] + git_marks_arg + [
+  git_proc = git(['fast-export'] + git_import_arg + [
                   '--export-marks=%s' % git_marks,
                   branch],
                  stdout=bzr_proc.stdin,
