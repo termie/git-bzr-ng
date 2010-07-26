@@ -6,6 +6,7 @@
 import optparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -22,7 +23,7 @@ def run_command(cmd, error_ok=False, error_message=None, exit_code=False,
                redirect_stdout=True, return_proc=False, stdout=None,
                stdin=None):
   # Useful for debugging:
-  print >>sys.stderr, ' '.join(cmd)
+  #print >>sys.stderr, ' '.join(cmd)
   if redirect_stdout and stdout is None:
     stdout = subprocess.PIPE
 
@@ -140,30 +141,58 @@ class Changelist(object):
     return self._map_dir
 
 
+def rewrite_bzr_marks_file(filename):
+  f = open(filename + '-tmp', 'w')
+  for line in open(filename):
+    try:
+      int(line.split(' ')[0])
+      line = ':' + line
+    except:
+      pass
+    f.write(line)
+  f.close()
+  shutil.move(filename + '-tmp', filename)
+
+
+def unrewrite_bzr_marks_file(filename):
+  f = open(filename + '-tmp', 'w')
+  for line in open(filename):
+    if line.startswith(':'):
+      line = line[1:]
+    f.write(line)
+  f.close()
+  shutil.move(filename + '-tmp', filename)
+
+
 def export_bzr(bzr_ref, cl=None):
   if cl is None:
     cl = Changelist()
 
   branch = branch_name(bzr_ref)
 
-  bzr_export = cl.map_dir('%s-bzr-export' % branch)
-  git_import = cl.map_dir('%s-git-import' % branch)
+  bzr_marks = cl.map_dir('%s-bzr' % branch)
+  git_marks = cl.map_dir('%s-git' % branch)
 
   # TODO(termie): sanity checks
-  if os.path.exists(bzr_export):
-    bzr_export_arg = ['--import-marks=%s' % bzr_export]
-    git_import_arg = ['--import-marks=%s' % git_import]
+  if os.path.exists(bzr_marks):
+    # HACK: bzr fast-export seems to like to write out revno without the ':'
+    #       that git uses
+    #       this may have to be removed if bzr fast-export changes its format
+    unrewrite_bzr_marks_file(bzr_marks)
+
+    bzr_export_arg = ['--import-marks=%s' % bzr_marks]
+    git_import_arg = ['--import-marks=%s' % git_marks]
   else:
     bzr_export_arg = git_import_arg = []
 
   # NOTE(termie): this happens in reverse because we're piping
   git_proc = git(['fast-import'] + git_import_arg + [
-                  '--export-marks=%s' % git_import],
+                  '--export-marks=%s' % git_marks],
                  stdin=subprocess.PIPE,
                  return_proc=True)
 
   bzr_proc = bzr(['fast-export'] + bzr_export_arg + [
-                  '--export-marks=%s' % bzr_export,
+                  '--export-marks=%s' % bzr_marks,
                   '--git-branch=%s' % bzr_ref,
                   cl.bzr_dir(branch)],
                  stdout=git_proc.stdin,
@@ -178,29 +207,34 @@ def export_git(branch, cl=None):
   if cl is None:
     cl = Changelist()
 
-  git_export = cl.map_dir('%s-git-export' % branch)
-  bzr_import = cl.map_dir('%s-bzr-import' % branch)
+  git_marks = cl.map_dir('%s-git' % branch)
+  bzr_marks = cl.map_dir('%s-bzr' % branch)
 
   # TODO(termie): sanity checks
-  if os.path.exists(git_export):
-    git_export_arg = ['--import-marks=%s' % git_export]
-    bzr_import_arg = ['--import-marks=%s' % bzr_import]
+  if os.path.exists(bzr_marks):
+    # HACK: bzr fast-export seems to like to write out revno without the ':'
+    #       that git uses
+    #       this may have to be removed if bzr fast-export changes its format
+    rewrite_bzr_marks_file(bzr_marks)
+    git_marks_arg = ['--import-marks=%s' % git_marks]
+    bzr_marks_arg = ['--import-marks=%s' % bzr_marks]
   else:
-    bzr_import_arg = git_export_arg = []
+    bzr_marks_arg = git_marks_arg = []
   
   # NOTE(termie): this happens in reverse because we're piping
-  bzr_proc = bzr(['fast-import'] + bzr_import_arg + [
-                  '--export-marks=%s' % bzr_import,
+  bzr_proc = bzr(['fast-import'] + bzr_marks_arg + [
+                  '--export-marks=%s' % bzr_marks,
                   '-',
                   cl.bzr_dir(branch)],
                  stdin=subprocess.PIPE,
                  return_proc=True)
 
-  git_proc = git(['fast-export'] + git_export_arg + [
-                  '--export-marks=%s' % git_export,
+  git_proc = git(['fast-export'] + git_marks_arg + [
+                  '--export-marks=%s' % git_marks,
                   branch],
                  stdout=bzr_proc.stdin,
                  return_proc=True)
+
   git_proc.wait()
   bzr_proc.stdin.close()
   bzr_proc.wait()
@@ -226,10 +260,9 @@ def cmd_clone(args):
 
   # TODO(termie): command-line validation
   url = args[0]
-  branch = url.rpartition(':')[2].rpartition('/')[2]
 
   if len(args) == 1:
-    target = branch
+    target = url.rpartition(':')[2].rpartition('/')[2]
   else:
     target = args[1]
 
@@ -238,6 +271,7 @@ def cmd_clone(args):
     url = os.path.abspath(url)
 
   target = os.path.abspath(target)
+  branch = 'master'
   bzr_ref = bzr_ref_name(branch)
 
   if os.path.exists(target):
@@ -308,8 +342,12 @@ def cmd_push(args):
   root = cl.root_dir()
   os.chdir(cl.bzr_dir(branch))
   bzr(['push', upstream])
-
   os.chdir(root)
+  
+  # if this is out first time, make the tracking branch
+  if not known_upstream:
+    git(['branch', bzr_ref, branch])
+
   set_cfg('%s.bzr' % branch, bzr_ref)
   set_cfg('%s.upstream' % bzr_ref, upstream)
 
