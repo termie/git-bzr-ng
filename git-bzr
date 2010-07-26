@@ -233,7 +233,7 @@ def cmd_clone(args):
     url = os.path.abspath(url)
 
   target = os.path.abspath(target)
-  branch = os.path.basename(target)
+  branch = 'master'
   bzr_ref = bzr_ref_name(branch)
 
   if os.path.exists(target):
