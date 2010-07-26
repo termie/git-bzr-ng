@@ -111,12 +111,12 @@ echo "touch6" > touch2.txt
 git add touch2.txt
 git commit -m "touch6"
 git bzr push
+expect_success "failed to push a change after merging new changes"
 
-
-# TEST: import another branch
+# TEST: import another branch and pull changes from `pushed` and push to branch
 git bzr import ${BZRBRANCH}_imported imported
 git checkout imported
 
 git pull . -- pushed
 git bzr push
-
+expect_success "failed to push changes pulled from 'pushed'"

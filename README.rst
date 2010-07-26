@@ -52,6 +52,12 @@ Example usage
   $ git bzr import lp:~vishvananda/nova/fix-part fix-part
   $ git diff touch_branch
 
+  Like those changes? Pull them into your own branch and push them
+  $ git checkout touch_branch
+  $ git pull . -- fix-part
+  $ git bzr push
+  
+
 See test.sh for even more examples
 
 
