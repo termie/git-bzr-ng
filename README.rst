@@ -20,8 +20,8 @@ Example usage
   $ git branch -a  
 
   # result -> 
-  #   bzr/nova
-  # * nova
+  #   bzr/master
+  # * master
   
   Make a new branch
   
@@ -43,9 +43,9 @@ Example usage
   Sync is a slow operation the first time, like push.
   They both speed up after they've done it once for a given branch.
 
-  $ git checkout nova
+  $ git checkout master
   $ git bzr sync
-  $ git diff bzr/nova
+  $ git diff bzr/master
 
   Somebody else has a patch and you want to test it locally.
 
