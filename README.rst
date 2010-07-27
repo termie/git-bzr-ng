@@ -1,10 +1,12 @@
-Git to Bzr to Git to Bzr...
-===========================
+Git-Bzr-NG or How I Learned to Stop Worrying and Love the Code
+==============================================================
 
-This tool lets you use git's day-to-day functionality for your
-development but still be able to interact with bzr and launchpad.
+git-bzr-ng is a bidirectional bridge between git and bzr that lets you stop
+worrying which version control the code you love is using -- as long as they
+are using git or bzr ;) (hg coming soon?).
 
-Easy to use and cleanly written (I hope (send patches!))
+Easy to use and cleanly written (I hope (send patches!)). Check out the
+examples below for basic usage.
 
 
 Example usage
@@ -58,7 +60,9 @@ Example usage
   $ git bzr push
   
 
-See test.sh for even more examples
+See test.sh for even more examples. Please try it out and report any issues to
+the github tracker at http://github.com/termie/git-bzr-ng/issues so we can
+sort them out quickly.
 
 
 Extra Notes
@@ -76,14 +80,13 @@ with:
 It won't do anything to any branch except the one mentioned and on that one
 it effectively does a `bzr pull --overwrite`.
 
-Also, output is a little verbose right now since things are rather fresh.
 
 
 Requirements
 ------------
 
-* git (some recent version)
-* bzr 2.2+ (pip install bzr)
+* git (some recentish version)
+* bzr 2.2+ (pip install --upgrade bzr)
 * bzr-fastimport (bzr branch lp:bzr-fastimport)
 * You also need to put the git-bzr script somewhere in your path
 
@@ -92,11 +95,16 @@ Troubleshooting
 ---------------
 
 If you get a traceback from bzr about BTreeIndex it means you are using an
-old version of bzr. You need bzr 2.2+
+old version of bzr. You need bzr 2.2+ unfortunately 2.1.1 seems to be the
+default package in Ubuntu Lucid right now so you may need to uninstall it
+first, `pip install --upgrade bzr` should do the right thing.
+
+For other issues, please see: http://github.com/termie/git-bzr-ng/issues
 
 
 Kind thanks to
 --------------
 
+* bzr-fastimport: https://launchpad.net/bzr-fastimport
 * Evan Martin's git-cl: http://neugierig.org/software/git/?r=git-cl
 * kfish's git-bzr: http://github.com/kfish/git-bzr
