@@ -97,7 +97,13 @@ Troubleshooting
 If you get a traceback from bzr about BTreeIndex it means you are using an
 old version of bzr. You need bzr 2.2+ unfortunately 2.1.1 seems to be the
 default package in Ubuntu Lucid right now so you may need to uninstall it
-first, `pip install --upgrade bzr` should do the right thing.
+first and then: 
+
+::
+  
+  $ sudo apt-get install python-pip python-setuptools python-dev
+  $ sudo pip install --upgrade bzr
+
 
 For other issues, please see: http://github.com/termie/git-bzr-ng/issues
 
