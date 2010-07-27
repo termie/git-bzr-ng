@@ -211,6 +211,9 @@ def export_git(branch, cl=None):
   git_marks = cl.map_dir('%s-git' % branch)
   bzr_marks = cl.map_dir('%s-bzr' % branch)
 
+  git_master_marks = cl.map_dir('master-git')
+  bzr_master_marks = cl.map_dir('master-bzr')
+
   # TODO(termie): sanity checks
   if os.path.exists(bzr_marks):
     # HACK: bzr fast-export seems to like to write out revno without the ':'
@@ -220,7 +223,10 @@ def export_git(branch, cl=None):
     git_import_arg = ['--import-marks=%s' % git_marks]
     bzr_import_arg = ['--import-marks=%s' % bzr_marks]
   else:
-    bzr_import_arg = git_import_arg = []
+    bzr(['branch', cl.bzr_dir('master'), cl.bzr_dir(branch)])
+    rewrite_bzr_marks_file(bzr_master_marks)
+    bzr_import_arg = ['--import-marks=%s' % bzr_master_marks]
+    git_import_arg = ['--import-marks=%s' % git_master_marks]
   
   # NOTE(termie): this happens in reverse because we're piping
   bzr_proc = bzr(['fast-import'] + bzr_import_arg + [
