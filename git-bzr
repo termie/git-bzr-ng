@@ -254,7 +254,7 @@ def init_repo(cl=None):
   if not os.path.exists(cl.bzr_dir()):
     os.makedirs(cl.bzr_dir())
     # Initialize a bzr repo
-    bzr(['init-repo', cl.bzr_dir()])
+    bzr(['init-repo', '--no-trees', cl.bzr_dir()])
 
   if not os.path.exists(cl.map_dir()):
     os.makedirs(cl.map_dir())
