@@ -96,8 +96,8 @@ Troubleshooting
 
 If you get a traceback from bzr about BtreeBuilder and _find_ancestors there
 currently seems to be a bug with either bzr or bzr-fastimport. It is corrected
-very simply by copying the _find_ancestors method from BtreeIndex to
-BtreeBuilder in bzrlib/btree_index.py but I've also uploaded a bzr branch that
+very simply by copying the _find_ancestors method from BTreeGraphIndex to
+BTreeBuilder in bzrlib/btree_index.py but I've also uploaded a bzr branch that
 has this patch already applied:
 
 https://code.launchpad.net/~termie/bzr/bzr_btree_ancestors
