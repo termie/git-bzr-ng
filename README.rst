@@ -94,16 +94,21 @@ Requirements
 Troubleshooting
 ---------------
 
-If you get a traceback from bzr about BTreeIndex it means you are using an
-old version of bzr. You need bzr 2.2+ unfortunately 2.1.1 seems to be the
-default package in Ubuntu Lucid right now so you may need to uninstall it
-first and then: 
+If you get a traceback from bzr about BtreeBuilder and _find_ancestors there
+currently seems to be a bug with either bzr or bzr-fastimport. It is corrected
+very simply by copying the _find_ancestors method from BtreeIndex to
+BtreeBuilder in bzrlib/btree_index.py but I've also uploaded a bzr branch that
+has this patch already applied:
 
-::
-  
-  $ sudo apt-get install python-pip python-setuptools python-dev
-  $ sudo pip install --upgrade bzr
+https://code.launchpad.net/~termie/bzr/bzr_btree_ancestors
 
+The patch is also available for download at:
+
+http://github.com/termie/git-bzr-ng/raw/master/btree_index.patch
+
+Additionally there is a command `git bzr clear` that will wipe out the
+bzr-related information for a given branch so if you have somehow found
+yourself in a bind, it should help you wipe the slate to try again.
 
 For other issues, please see: http://github.com/termie/git-bzr-ng/issues
 
