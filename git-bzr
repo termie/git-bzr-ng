@@ -78,6 +78,10 @@ def get_cfg(key, **kwargs):
   return git(['config', '%s.%s' % (NAMESPACE, key)], **kwargs).strip()
 
 
+def clear_cfg(key):
+  git(['config', '--unset', '%s.%s' % (NAMESPACE, key)])
+
+
 def branch_exists(branch):
   branches = git(['branch', '-a'])
   branches = branches.split('\n')
@@ -204,15 +208,15 @@ def export_bzr(bzr_ref, cl=None):
   return bzr_ref
 
 
-def export_git(branch, cl=None):
+def export_git(branch, cl=None, parent_branch=None):
   if cl is None:
     cl = Changelist()
 
   git_marks = cl.map_dir('%s-git' % branch)
   bzr_marks = cl.map_dir('%s-bzr' % branch)
 
-  git_master_marks = cl.map_dir('master-git')
-  bzr_master_marks = cl.map_dir('master-bzr')
+  git_parent_marks = cl.map_dir('%s-git' % parent_branch)
+  bzr_parent_marks = cl.map_dir('%s-bzr' % parent_branch)
 
   # TODO(termie): sanity checks
   if os.path.exists(bzr_marks):
@@ -223,10 +227,10 @@ def export_git(branch, cl=None):
     git_import_arg = ['--import-marks=%s' % git_marks]
     bzr_import_arg = ['--import-marks=%s' % bzr_marks]
   else:
-    bzr(['branch', cl.bzr_dir('master'), cl.bzr_dir(branch)])
-    rewrite_bzr_marks_file(bzr_master_marks)
-    bzr_import_arg = ['--import-marks=%s' % bzr_master_marks]
-    git_import_arg = ['--import-marks=%s' % git_master_marks]
+    bzr(['branch', cl.bzr_dir(parent_branch), cl.bzr_dir(branch)])
+    rewrite_bzr_marks_file(bzr_parent_marks)
+    bzr_import_arg = ['--import-marks=%s' % bzr_parent_marks]
+    git_import_arg = ['--import-marks=%s' % git_parent_marks]
   
   # NOTE(termie): this happens in reverse because we're piping
   bzr_proc = bzr(['fast-import'] + bzr_import_arg + [
@@ -300,6 +304,9 @@ def cmd_clone(args):
 def cmd_push(args):
   parser = optparse.OptionParser(usage='git bzr push <url>')
   parser.description = ('Effectively a bzr push <url>')
+  parser.add_option('--parent_branch', action='store', dest='parent_branch',
+                    default='master',
+                    help='use this branch as the parent branch')
   (options, args) = parser.parse_args(args)
 
   cl = Changelist()
@@ -344,7 +351,7 @@ def cmd_push(args):
 
   branch = cl.branch()
   bzr_ref = bzr_ref_name(branch)
-  export_git(branch, cl=cl)
+  export_git(branch, cl=cl, parent_branch=options.parent_branch)
 
   root = cl.root_dir()
   os.chdir(cl.bzr_dir(branch))
@@ -442,8 +449,52 @@ def cmd_import(args):
   set_cfg('%s.upstream' % bzr_ref, url)
 
 
+def cmd_clear(args):
+  parser = optparse.OptionParser(usage='git bzr clear [<bzr_branch>]')
+  parser.description = ('Clear all information for a given bzr branch')
+  (options, args) = parser.parse_args(args)
+
+  cl = Changelist()
+
+  # Ensure our directories exist
+  init_repo(cl)
+
+  bzr_ref = None
+  if len(args):
+    bzr_ref = args[0]
+
+  if not bzr_ref:
+    bzr_ref = get_cfg('%s.bzr' % cl.branch())
+    if bzr_ref:
+      clear_cfg('%s.bzr' % cl.branch())
+
+  if not bzr_ref:
+    die('No bzr tracking information associated with this branch,'
+        'which bzr tracking branch do you want to clear?')
+  
+  upstream = get_cfg('%s.upstream' % bzr_ref)
+  if upstream:
+    clear_cfg('%s.upstream' % bzr_ref)
+
+  branch = branch_name(bzr_ref)
+  branch_dir = cl.bzr_dir(branch)
+  git_maps = cl.map_dir('%s-git' % branch)
+  bzr_maps = cl.map_dir('%s-bzr' % branch)
+
+  if os.path.exists(branch_dir):
+    shutil.rmtree(branch_dir)
+  
+  for map_file in (git_maps, bzr_maps):
+    if os.path.exists(map_file):
+      os.unlink(map_file)
+
+  if branch_exists(bzr_ref):
+    git(['branch', '-D', bzr_ref])
+
+
 COMMANDS = [
   ('clone', 'clone a bzr repo', cmd_clone),
+  ('clear', 'clear bzr data for a branch', cmd_clear),
   ('push', 'push to a bzr repo', cmd_push),
   ('sync', 'sync bzr tracking branch to remote', cmd_sync),
   ('import', 'import a bzr branch as a new git branch', cmd_import),
