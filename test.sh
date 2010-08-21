@@ -120,3 +120,6 @@ git checkout imported
 git pull . -- pushed
 git bzr push
 expect_success "failed to push changes pulled from 'pushed'"
+
+# TODO(termie):
+#   test diverged and using sync --overwrite + git rebase to fix it

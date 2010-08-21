@@ -168,7 +168,7 @@ def unrewrite_bzr_marks_file(filename):
   shutil.move(filename + '-tmp', filename)
 
 
-def export_bzr(bzr_ref, cl=None):
+def export_bzr(bzr_ref, cl=None, overwrite=False):
   if cl is None:
     cl = Changelist()
 
@@ -178,7 +178,7 @@ def export_bzr(bzr_ref, cl=None):
   git_marks = cl.map_dir('%s-git' % branch)
 
   # TODO(termie): sanity checks
-  if os.path.exists(bzr_marks):
+  if not overwrite and os.path.exists(bzr_marks):
     # HACK: bzr fast-export seems to like to write out revno without the ':'
     #       that git uses
     #       this may have to be removed if bzr fast-export changes its format
@@ -188,6 +188,9 @@ def export_bzr(bzr_ref, cl=None):
     git_import_arg = ['--import-marks=%s' % git_marks]
   else:
     bzr_import_arg = git_import_arg = []
+
+  if overwrite:
+    git(['branch', '-D', bzr_ref])
 
   # NOTE(termie): this happens in reverse because we're piping
   git_proc = git(['fast-import'] + git_import_arg + [
@@ -402,7 +405,7 @@ def cmd_sync(args):
   bzr(params)
   os.chdir(cl.root_dir())
 
-  export_bzr(bzr_ref, cl=cl)
+  export_bzr(bzr_ref, cl=cl, overwrite=options.overwrite)
 
 
 def cmd_import(args):
