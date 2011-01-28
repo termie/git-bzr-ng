@@ -3,19 +3,26 @@
 # Copyright (C) 2008 Evan Martin <martine@danga.com>
 # Copyright (C) 2010 Andy Smith <andy@term.ie>
 
+import logging
 import optparse
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
+
+try:
+  import cStringIO as StringIO
+except ImportError:
+  import StringIO
 
 
 NAMESPACE = 'bzr'
 
 
 def die(message, *args):
-  print >>sys.stderr, message % args
+  logging.error(message, *args)
   sys.exit(1)
 
 
@@ -23,7 +30,7 @@ def run_command(cmd, error_ok=False, error_message=None, exit_code=False,
                redirect_stdout=True, return_proc=False, stdout=None,
                stdin=None):
   # Useful for debugging:
-  #print >>sys.stderr, ' '.join(cmd)
+  logging.debug(' '.join(cmd))
   if redirect_stdout and stdout is None:
     stdout = subprocess.PIPE
 
@@ -92,6 +99,32 @@ def branch_exists(branch):
   return False
 
 
+class LoggingPipe(object):
+  def __init__(self, pipe, name=''):
+    self.pipe = pipe
+    self.name = name
+    self._capture = False
+    self._io = None
+    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+      self._capture = True
+      self._io = tempfile.TemporaryFile()
+
+  def fileno(self):
+    if self._capture:
+      return self._io.fileno()
+    return self.pipe.fileno()
+  
+  def close(self, *args, **kw):
+    if self._capture:
+      logging.debug('captured output (%s):', self.name)
+      self._io.seek(0)
+      rv = self._io.read()
+      self._io.close(*args, **kw)
+      logging.debug(rv)
+      self.pipe.write(rv)
+    self.pipe.close(*args, **kw)
+
+
 class Changelist(object):
   def __init__(self, branchref=None):
     self._branchref = branchref
@@ -146,23 +179,30 @@ class Changelist(object):
 
 
 def rewrite_bzr_marks_file(filename):
+  logging.debug('rewrite bzr marks')
   f = open(filename + '-tmp', 'w')
   for line in open(filename):
+    logging.debug('- %s', line.strip())
     try:
       int(line.split(' ')[0])
       line = ':' + line
     except:
       pass
+    logging.debug('+ %s', line.strip())
     f.write(line)
   f.close()
   shutil.move(filename + '-tmp', filename)
 
 
 def unrewrite_bzr_marks_file(filename):
+  logging.debug('unrewrite bzr marks')
   f = open(filename + '-tmp', 'w')
   for line in open(filename):
-    if line.startswith(':'):
-      line = line[1:]
+    logging.debug('- %s', line.strip())
+    #if line.startswith(':'):
+    line = line.lstrip(':')
+    #line = line[1:]
+    logging.debug('+ %s', line.strip())
     f.write(line)
   f.close()
   shutil.move(filename + '-tmp', filename)
@@ -182,7 +222,7 @@ def export_bzr(bzr_ref, cl=None, overwrite=False):
     # HACK: bzr fast-export seems to like to write out revno without the ':'
     #       that git uses
     #       this may have to be removed if bzr fast-export changes its format
-    unrewrite_bzr_marks_file(bzr_marks)
+    #unrewrite_bzr_marks_file(bzr_marks)
 
     bzr_import_arg = ['--import-marks=%s' % bzr_marks]
     git_import_arg = ['--import-marks=%s' % git_marks]
@@ -199,15 +239,23 @@ def export_bzr(bzr_ref, cl=None, overwrite=False):
                  stdin=subprocess.PIPE,
                  return_proc=True)
 
+  git_proc_in = LoggingPipe(git_proc.stdin, 'bzr fast-export')
+
   bzr_proc = bzr(['fast-export'] + bzr_import_arg + [
+                  '--plain',
                   '--export-marks=%s' % bzr_marks,
                   '--git-branch=%s' % bzr_ref,
                   cl.bzr_dir(branch)],
-                 stdout=git_proc.stdin,
+                 stdout=git_proc_in,
                  return_proc=True)
+
   bzr_proc.wait()
-  git_proc.stdin.close()
+  if bzr_proc.returncode != 0:
+    die('bzr export failed')
+  git_proc_in.close()
   git_proc.wait()
+  if bzr_proc.returncode != 0:
+    die('git import failed')
   return bzr_ref
 
 
@@ -242,16 +290,22 @@ def export_git(branch, cl=None, parent_branch=None):
                   cl.bzr_dir(branch)],
                  stdin=subprocess.PIPE,
                  return_proc=True)
+  
+  bzr_proc_in = LoggingPipe(bzr_proc.stdin, 'git fast-export')
 
   git_proc = git(['fast-export'] + git_import_arg + [
                   '--export-marks=%s' % git_marks,
                   branch],
-                 stdout=bzr_proc.stdin,
+                 stdout=bzr_proc_in,
                  return_proc=True)
 
   git_proc.wait()
-  bzr_proc.stdin.close()
+  if git_proc.returncode != 0:
+    die('git export failed')
+  bzr_proc_in.close()
   bzr_proc.wait()
+  if bzr_proc.returncode != 0:
+    die('bzr import failed')
 
 
 def init_repo(cl=None):
