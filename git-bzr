@@ -548,6 +548,37 @@ def cmd_clear(args):
   if branch_exists(bzr_ref):
     git(['branch', '-D', bzr_ref])
 
+def cmd_marks(args):
+  parser = optparse.OptionParser(usage='git bzr push <url>')
+  parser.description = ('Effectively a bzr push <url>')
+  parser.add_option('--git', action='store_true', dest='git',
+                    default=True,
+                    help='show the git marks file')
+  parser.add_option('--bzr', action='store_false', dest='git',
+                    default=True,
+                    help='show the bzr marks file')
+  parser.add_option('--file', action='store_true', dest='fileonly',
+                    default=False,
+                    help='show the marks filename only')
+  (options, args) = parser.parse_args(args)
+
+  cl = Changelist()
+
+  # Ensure our directories exist
+  init_repo(cl)
+
+  branch = cl.branch()
+  if options.git:
+    marks = cl.map_dir('%s-git' % branch)
+  else:
+    marks = cl.map_dir('%s-bzr' % branch)
+  
+  if options.fileonly:
+    print marks
+  else:
+    print 'Marks file: %s' % marks
+    print open(marks).read()
+
 
 COMMANDS = [
   ('clone', 'clone a bzr repo', cmd_clone),
@@ -555,6 +586,7 @@ COMMANDS = [
   ('push', 'push to a bzr repo', cmd_push),
   ('sync', 'sync bzr tracking branch to remote', cmd_sync),
   ('import', 'import a bzr branch as a new git branch', cmd_import),
+  ('marks', 'show the marks files for a branch', cmd_marks),
 ]
 
 
