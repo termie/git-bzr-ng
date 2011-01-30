@@ -72,6 +72,18 @@ def bzr_ref_name(branch):
   return '%s/%s' % (NAMESPACE, branch)
 
 
+def normalize_upstream(path):
+  """Fix paths if necessary.
+
+  Upstream will either be a launchpad url, a bzr url, or a path.
+  """
+  if not path:
+    return path
+  if ':' not in path:
+    return os.path.abspath(path)
+  return path
+
+
 def branch_name(bzr_ref):
   return bzr_ref[len(NAMESPACE) + 1:]
 
@@ -335,8 +347,7 @@ def cmd_clone(args):
     target = args[1]
 
   # TODO(termie): sanity checking
-  if ':' not in url:
-    url = os.path.abspath(url)
+  url = normalize_upstream(url)
 
   target = os.path.abspath(target)
   branch = 'master'
@@ -374,6 +385,9 @@ def cmd_push(args):
   upstream = None
   if len(args):
     upstream = args[0]
+
+  # Attempt to normalize the upstream
+  upstream = normalize_upstream(upstream)
 
   # Find the upstream from the tracking branch
   bzr_ref = get_cfg('%s.bzr' % cl.branch())
@@ -474,9 +488,7 @@ def cmd_import(args):
   else:
     target = args[1]
 
-  # TODO(termie): sanity checking
-  if ':' not in url:
-    url = os.path.abspath(url)
+  url = normalize_upstream(url)
 
   branch = target
   bzr_ref = bzr_ref_name(branch)
@@ -548,6 +560,7 @@ def cmd_clear(args):
   if branch_exists(bzr_ref):
     git(['branch', '-D', bzr_ref])
 
+
 def cmd_marks(args):
   parser = optparse.OptionParser(usage='git bzr push <url>')
   parser.description = ('Effectively a bzr push <url>')
@@ -601,6 +614,8 @@ def usage(name):
 def main(argv):
   if len(argv) < 2:
     usage(argv[0])
+
+  #logging.getLogger().setLevel(logging.DEBUG)
 
   command = argv[1]
   for name, _, func in COMMANDS:

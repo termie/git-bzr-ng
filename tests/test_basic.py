@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import subprocess
@@ -41,7 +42,7 @@ def check_output(*popenargs, **kwargs):
   """
   if 'stdout' in kwargs:
     raise ValueError('stdout argument not allowed, it will be overridden.')
-  print ' '.join(popenargs[0])
+  logging.debug(' '.join(popenargs[0]))
   process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
   output, unused_err = process.communicate()
   retcode = process.poll()
@@ -114,6 +115,10 @@ class GitBzrTest(unittest.TestCase):
     # make another branch to test import later
     cd(TESTDIR)
     bzr('branch', BZRBRANCH, '%s_imported' % BZRBRANCH)
+
+    # make a default clone
+    cd(TESTDIR)
+    gitbzr('clone', BZRBRANCH, '%s_cloned' % BZRBRANCHNAME)
 
   def test_all(self):
     # TEST: clone with git-bzr-ng
@@ -189,3 +194,26 @@ class GitBzrTest(unittest.TestCase):
     git('checkout', 'imported')
     git('pull', '.', '--', 'pushed')
     gitbzr('push')
+
+  def test_push_relative_path(self):
+    logging.getLogger().setLevel(logging.DEBUG)
+    cd('%s_cloned' % BZRBRANCH)
+    open('touch2.txt', 'w').write('CLONED')
+    git('add', 'touch2.txt')
+    git('commit', '-m', 'touched touch2')
+    
+    # push back to previous bzr branch
+    gitbzr('push', '../%s' % BZRBRANCHNAME)
+    self.assertEqual('CLONED', open('%s/touch2.txt' % BZRBRANCH).read())
+    
+    open('touch2.txt', 'w').write('CLONED2')
+    git('add', 'touch2.txt')
+    git('commit', '-m', 'touched2 touch2')
+    gitbzr('push')
+    self.assertEqual('CLONED2', open('%s/touch2.txt' % BZRBRANCH).read())
+
+    # push to a new repo
+    gitbzr('push', '../%s_new' % BZRBRANCHNAME)
+    cd('%s_new' % BZRBRANCH)
+    bzr('checkout', '.')
+    self.assertEqual('CLONED2', open('%s_new/touch2.txt' % BZRBRANCH).read())
