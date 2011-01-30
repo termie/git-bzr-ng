@@ -1,0 +1,62 @@
+=== modified file 'branch_updater.py'
+--- branch_updater.py	2010-10-15 19:25:16 +0000
++++ branch_updater.py	2011-01-30 22:26:05 +0000
+@@ -151,6 +151,7 @@
+         :return: whether the branch was changed or not
+         """
+         from fastimport.helpers import single_plural
++        last_mark = last_mark.lstrip(':')
+         last_rev_id = self.cache_mgr.revision_ids[last_mark]
+         revs = list(self.repo.iter_reverse_revision_history(last_rev_id))
+         revno = len(revs)
+
+=== modified file 'bzr_commit_handler.py'
+--- bzr_commit_handler.py	2011-01-23 09:27:40 +0000
++++ bzr_commit_handler.py	2011-01-30 22:29:00 +0000
+@@ -113,7 +113,7 @@
+ 
+         # Convert the parent commit-ids to bzr revision-ids
+         if parents:
+-            self.parents = [self.cache_mgr.revision_ids[p]
++            self.parents = [self.cache_mgr.revision_ids[p.lstrip(':')]
+                 for p in parents]
+         else:
+             self.parents = []
+
+=== modified file 'marks_file.py'
+--- marks_file.py	2010-12-11 21:27:52 +0000
++++ marks_file.py	2011-01-30 22:29:24 +0000
+@@ -53,8 +53,7 @@
+     while line:
+         line = line.rstrip('\n')
+         mark, revid = line.split(' ', 1)
+-        if mark.startswith(':'):
+-            mark = mark[1:]
++        mark = mark.lstrip(':')
+         revision_ids[mark] = revid
+         line = f.readline()
+     f.close()
+@@ -76,5 +75,5 @@
+ 
+     # Write the revision info
+     for mark, revid in revision_ids.iteritems():
+-        f.write(':%s %s\n' % (mark, revid))
++        f.write(':%s %s\n' % (str(mark).lstrip(':'), revid))
+     f.close()
+
+=== modified file 'processors/generic_processor.py'
+--- processors/generic_processor.py	2010-12-12 03:36:13 +0000
++++ processors/generic_processor.py	2011-01-30 22:15:12 +0000
+@@ -533,9 +533,9 @@
+         except:
+             print "ABORT: exception occurred processing commit %s" % (cmd.id)
+             raise
+-        self.cache_mgr.revision_ids[cmd.id] = handler.revision_id
++        self.cache_mgr.revision_ids[cmd.id.lstrip(':')] = handler.revision_id
+         self._revision_count += 1
+-        self.report_progress("(%s)" % cmd.id)
++        self.report_progress("(%s)" % cmd.id.lstrip(':'))
+ 
+         if cmd.ref.startswith('refs/tags/'):
+             tag_name = cmd.ref[len('refs/tags/'):]
+
