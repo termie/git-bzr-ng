@@ -88,23 +88,22 @@ Requirements
 * git (some recentish version)
 * bzr 2.2+ (pip install --upgrade bzr)
 * bzr-fastimport (bzr branch lp:bzr-fastimport)
+  * Needs patching currently, see Troubleshooting
+* python-fastimport, for bzr-fastimport (bzr branch lp:python-fastimport)
 * You also need to put the git-bzr script somewhere in your path
 
 
 Troubleshooting
 ---------------
 
-If you get a traceback from bzr about BtreeBuilder and _find_ancestors there
-currently seems to be a bug with either bzr or bzr-fastimport. It is corrected
-very simply by copying the _find_ancestors method from BTreeGraphIndex to
-BTreeBuilder in bzrlib/btree_index.py but I've also uploaded a bzr branch that
-has this patch already applied:
+bzr-fastimport currently needs patching, though my patch has been proposed
+for merging into the project.
 
-https://code.launchpad.net/~termie/bzr/bzr_btree_ancestors
+To install the patched version directly you can
 
-The patch is also available for download at:
+`bzr branch lp:~termie/bzr-fastimport/marks_normalization`
 
-http://github.com/termie/git-bzr-ng/raw/master/btree_index.patch
+Or you can use the patch in the `/vendor` directory of this project.
 
 Additionally there is a command `git bzr clear` that will wipe out the
 bzr-related information for a given branch so if you have somehow found
