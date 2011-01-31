@@ -15,20 +15,20 @@ Example usage
 ::
 
   Clone a launchpad repo
-  
+
   $ git bzr clone lp:nova nova
 
   $ cd nova
-  $ git branch -a  
+  $ git branch -a
 
-  # result -> 
+  # result ->
   #   bzr/master
   # * master
-  
+
   Make a new branch
-  
+
   $ git checkout -b touch_branch
-  
+
   $ echo "TOUCH" >> README
   $ git commit -a -m "touch touch"
   $ git bzr push lp:~termie/nova/touch_branch
@@ -36,7 +36,7 @@ Example usage
   Now you've got a cool new branch up on a server!
   Go ahead and do some more work and push again.
   It will go to the same place, and much faster now.
-  
+
   $ echo "TOUCH" >> README
   $ git commit -a -m "touch touch"
   $ git bzr push
@@ -58,7 +58,7 @@ Example usage
   $ git checkout touch_branch
   $ git pull . -- fix-part
   $ git bzr push
-  
+
 
 See test.sh for even more examples. Please try it out and report any issues to
 the github tracker at http://github.com/termie/git-bzr-ng/issues so we can
@@ -74,7 +74,7 @@ to push weird data to your bzr/* branches, you can always force an overwrite
 with:
 
 ::
-  
+
   $ git bzr sync --overwrite bzr/nova
 
 It won't do anything to any branch except the one mentioned and on that one
@@ -86,7 +86,7 @@ Requirements
 ------------
 
 * git (some recentish version)
-* bzr 2.2+ (pip install --upgrade bzr)
+* bzr 2.2 (pip install bzr==2.2)
 * bzr-fastimport (bzr branch lp:bzr-fastimport)
   * Needs patching currently, see Troubleshooting
 * python-fastimport, for bzr-fastimport (bzr branch lp:python-fastimport)
@@ -104,6 +104,15 @@ To install the patched version directly you can
 `bzr branch lp:~termie/bzr-fastimport/marks_normalization`
 
 Or you can use the patch in the `/vendor` directory of this project.
+
+If you see
+
+`AttributeError: 'BTreeBuilder' object has no attribute '_find_ancestors'`
+
+it means you have the bzr 2.3 beta installed, git-bzr-ng currently only
+works unpatched with bzr 2.2. It is possible to patch bzr 2.3 to correct
+the issue, but 2.2 is easy to install with pip.
+
 
 Additionally there is a command `git bzr clear` that will wipe out the
 bzr-related information for a given branch so if you have somehow found

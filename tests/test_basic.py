@@ -121,6 +121,10 @@ class GitBzrTest(unittest.TestCase):
     gitbzr('clone', BZRBRANCH, '%s_cloned' % BZRBRANCHNAME)
 
   def test_all(self):
+    """Test most of the functionality.
+
+    This test is a bit large, it is ported directly from a shell script.
+    """
     # TEST: clone with git-bzr-ng
     # it should guess the name correctly but notice that the directory already
     # exists and failed
