@@ -95,15 +95,6 @@ Requirements
 Troubleshooting
 ---------------
 
-bzr-fastimport currently needs patching, though my patch has been proposed
-for merging into the project.
-
-To install the patched version directly you can
-
-`bzr branch lp:~termie/bzr-fastimport/marks_normalization`
-
-Or you can use the patch in the `/vendor` directory of this project.
-
 If you see
 
 `AttributeError: 'BTreeBuilder' object has no attribute '_find_ancestors'`
