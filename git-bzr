@@ -125,7 +125,7 @@ class LoggingPipe(object):
     if self._capture:
       return self._io.fileno()
     return self.pipe.fileno()
-  
+
   def close(self, *args, **kw):
     if self._capture:
       logging.debug('captured output (%s):', self.name)
@@ -294,7 +294,7 @@ def export_git(branch, cl=None, parent_branch=None):
     rewrite_bzr_marks_file(bzr_parent_marks)
     bzr_import_arg = ['--import-marks=%s' % bzr_parent_marks]
     git_import_arg = ['--import-marks=%s' % git_parent_marks]
-  
+
   # NOTE(termie): this happens in reverse because we're piping
   bzr_proc = bzr(['fast-import'] + bzr_import_arg + [
                   '--export-marks=%s' % bzr_marks,
@@ -302,7 +302,7 @@ def export_git(branch, cl=None, parent_branch=None):
                   cl.bzr_dir(branch)],
                  stdin=subprocess.PIPE,
                  return_proc=True)
-  
+
   bzr_proc_in = LoggingPipe(bzr_proc.stdin, 'git fast-export')
 
   git_proc = git(['fast-export'] + git_import_arg + [
@@ -428,7 +428,7 @@ def cmd_push(args):
   os.chdir(cl.bzr_dir(branch))
   bzr(['push', upstream])
   os.chdir(root)
-  
+
   # if this is out first time, make the tracking branch
   if not known_upstream:
     git(['branch', bzr_ref, branch])
@@ -474,6 +474,18 @@ def cmd_sync(args):
   os.chdir(cl.root_dir())
 
   export_bzr(bzr_ref, cl=cl, overwrite=options.overwrite)
+
+
+def cmd_pull(args):
+  parser = optparse.OptionParser(usage='git bzr pull <bzr_branch>')
+  parser.description = ('Sync a bzr tracking branch (bzr/*) with remote')
+  parser.add_option('--overwrite', action='store_true', dest='overwrite',
+                    help='overwrite tracking branch with remote copy')
+  (options, args) = parser.parse_args(args)
+  cmd_sync(args)
+  cl = Changelist()
+  bzr_ref = get_cfg('%s.bzr' % cl.branch())
+  git(['pull', '.', '--', bzr_ref])
 
 
 def cmd_import(args):
@@ -540,7 +552,7 @@ def cmd_clear(args):
   if not bzr_ref:
     die('No bzr tracking information associated with this branch,'
         'which bzr tracking branch do you want to clear?')
-  
+
   upstream = get_cfg('%s.upstream' % bzr_ref)
   if upstream:
     clear_cfg('%s.upstream' % bzr_ref)
@@ -552,7 +564,7 @@ def cmd_clear(args):
 
   if os.path.exists(branch_dir):
     shutil.rmtree(branch_dir)
-  
+
   for map_file in (git_maps, bzr_maps):
     if os.path.exists(map_file):
       os.unlink(map_file)
@@ -585,7 +597,7 @@ def cmd_marks(args):
     marks = cl.map_dir('%s-git' % branch)
   else:
     marks = cl.map_dir('%s-bzr' % branch)
-  
+
   if options.fileonly:
     print marks
   else:
@@ -598,6 +610,7 @@ COMMANDS = [
   ('clear', 'clear bzr data for a branch', cmd_clear),
   ('push', 'push to a bzr repo', cmd_push),
   ('sync', 'sync bzr tracking branch to remote', cmd_sync),
+  ('pull', 'sync bzr tracking branch to remote and pull from it', cmd_pull),
   ('import', 'import a bzr branch as a new git branch', cmd_import),
   ('marks', 'show the marks files for a branch', cmd_marks),
 ]

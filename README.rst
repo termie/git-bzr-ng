@@ -88,7 +88,6 @@ Requirements
 * git (some recentish version)
 * bzr 2.2 (pip install bzr==2.2)
 * bzr-fastimport (bzr branch lp:bzr-fastimport)
-  * Needs patching currently, see Troubleshooting
 * python-fastimport, for bzr-fastimport (bzr branch lp:python-fastimport)
 * You also need to put the git-bzr script somewhere in your path
 
