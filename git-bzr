@@ -375,6 +375,9 @@ def cmd_push(args):
   parser.add_option('--parent_branch', action='store', dest='parent_branch',
                     default='master',
                     help='use this branch as the parent branch')
+  parser.add_option('--overwrite', action='store_true', dest='overwrite',
+                    default=False,
+                    help='push with bzr overwrite')
   (options, args) = parser.parse_args(args)
 
   cl = Changelist()
@@ -426,7 +429,11 @@ def cmd_push(args):
 
   root = cl.root_dir()
   os.chdir(cl.bzr_dir(branch))
-  bzr(['push', upstream])
+  params = []
+  if options.overwrite:
+    params.append('--overwrite')
+
+  bzr(['push'] + params + [upstream])
   os.chdir(root)
 
   # if this is out first time, make the tracking branch
