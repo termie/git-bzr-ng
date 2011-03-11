@@ -308,7 +308,7 @@ def export_git(branch, cl=None, parent_branch=None):
 
   bzr_proc_in = LoggingPipe(bzr_proc.stdin, 'git fast-export')
 
-  git_proc = git(['fast-export'] + git_import_arg + [
+  git_proc = git(['fast-export', '-M'] + git_import_arg + [
                   '--export-marks=%s' % git_marks,
                   branch],
                  stdout=bzr_proc_in,
