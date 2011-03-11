@@ -278,9 +278,6 @@ def export_git(branch, cl=None, parent_branch=None):
   git_marks = cl.map_dir('%s-git' % branch)
   bzr_marks = cl.map_dir('%s-bzr' % branch)
 
-  git_parent_marks = cl.map_dir('%s-git' % parent_branch)
-  bzr_parent_marks = cl.map_dir('%s-bzr' % parent_branch)
-
   # TODO(termie): sanity checks
   if os.path.exists(bzr_marks):
     # HACK: bzr fast-export seems to like to write out revno without the ':'
@@ -289,11 +286,17 @@ def export_git(branch, cl=None, parent_branch=None):
     rewrite_bzr_marks_file(bzr_marks)
     git_import_arg = ['--import-marks=%s' % git_marks]
     bzr_import_arg = ['--import-marks=%s' % bzr_marks]
-  else:
+  elif parent_branch:
+    git_parent_marks = cl.map_dir('%s-git' % parent_branch)
+    bzr_parent_marks = cl.map_dir('%s-bzr' % parent_branch)
+
     bzr(['branch', cl.bzr_dir(parent_branch), cl.bzr_dir(branch)])
     rewrite_bzr_marks_file(bzr_parent_marks)
     bzr_import_arg = ['--import-marks=%s' % bzr_parent_marks]
     git_import_arg = ['--import-marks=%s' % git_parent_marks]
+  else:
+    git_import_arg = []
+    bzr_import_arg = []
 
   # NOTE(termie): this happens in reverse because we're piping
   bzr_proc = bzr(['fast-import'] + bzr_import_arg + [
@@ -331,6 +334,48 @@ def init_repo(cl=None):
 
   if not os.path.exists(cl.map_dir()):
     os.makedirs(cl.map_dir())
+
+
+def cmd_init(args):
+  parser = optparse.OptionParser(usage='git bzr init [<target>]')
+  parser.description = ('Init a new bzr tracking branch (bzr/*)')
+  parser.add_option('--parent_branch', action='store', dest='parent_branch',
+                    default='master',
+                    help='use this branch as the parent branch')
+  (options, args) = parser.parse_args(args)
+
+  cl = Changelist()
+
+  # Ensure our directories exist
+  init_repo(cl)
+
+  # TODO(termie): command-line validation
+  if len(args) == 1:
+    branch = args[0]
+  else:
+    branch = cl.branch()
+
+  bzr_ref = bzr_ref_name(branch)
+
+  if branch_exists(bzr_ref):
+    die('Branch already exists: %s', bzr_ref)
+
+  bzr(['init', cl.bzr_dir(branch)])
+
+  if branch == "master":
+    parent_branch = None
+  else:
+    parent_branch = options.parent_branch
+  export_git(branch, cl=cl, parent_branch=parent_branch)
+
+  if not branch_exists(branch):
+    # TODO(termie): does it make sense for this to be a --track?
+    git(['branch', branch, options.parent_branch])
+
+  # TODO(termie): does it make sense for this to be a --track?
+  git(['branch', bzr_ref, branch])
+
+  set_cfg('%s.bzr' % branch, bzr_ref)
 
 
 def cmd_clone(args):
@@ -436,10 +481,10 @@ def cmd_push(args):
   bzr(['push'] + params + [upstream])
   os.chdir(root)
 
-  # if this is out first time, make the tracking branch
-  if not known_upstream:
+  if not branch_exists(bzr_ref):
     git(['branch', bzr_ref, branch])
 
+  # If this is out first time, make the tracking branch
   set_cfg('%s.bzr' % branch, bzr_ref)
   set_cfg('%s.upstream' % bzr_ref, upstream)
 
@@ -613,6 +658,7 @@ def cmd_marks(args):
 
 
 COMMANDS = [
+  ('init', 'init a new bzr branch', cmd_init),
   ('clone', 'clone a bzr repo', cmd_clone),
   ('clear', 'clear bzr data for a branch', cmd_clear),
   ('push', 'push to a bzr repo', cmd_push),
