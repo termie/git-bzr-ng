@@ -16,7 +16,10 @@ ROOTDIR=os.path.dirname(os.path.dirname(__file__))
 VENDOR=os.path.join(ROOTDIR, 'vendor')
 GITBZR=os.path.join(ROOTDIR, 'git-bzr')
 PYFASTIMPORT=os.path.join(VENDOR, 'python-fastimport')
-BZRFASTIMPORT=os.path.join(VENDOR, 'fastimport')
+PLUGINDIR=os.path.join(VENDOR, 'plugins')
+BZRFASTIMPORT=os.path.join(PLUGINDIR, 'fastimport')
+BZRFASTIMPORT_STABLE=os.path.join(VENDOR, 'fastimport_stable')
+BZRFASTIMPORT_HEAD=os.path.join(VENDOR, 'fastimport_head')
 
 
 # From python 2.7
@@ -76,24 +79,41 @@ def rmdir(path):
 class GitBzrTest(unittest.TestCase):
   def setUp(self):
     self._ensure_checkouts()
+    self._symlink_plugin()
     self._setup_bzr_branches()
 
   def tearDown(self):
     pass
 
+  def _symlink_plugin(self):
+    try:
+      os.unlink(BZRFASTIMPORT)
+    except Exception:
+      pass
+    os.symlink(BZRFASTIMPORT_STABLE, BZRFASTIMPORT)
+
   def _ensure_checkouts(self):
     if not os.path.exists(PYFASTIMPORT):
       cd(VENDOR)
       bzr('branch', 'lp:python-fastimport')
-    if not os.path.exists(BZRFASTIMPORT):
+
+    if not os.path.exists(PLUGINDIR):
+      os.mkdir(PLUGINDIR)
+
+    if not os.path.exists(BZRFASTIMPORT_STABLE):
       cd(VENDOR)
-      bzr('branch', 'lp:bzr-fastimport', BZRFASTIMPORT)
+      bzr('branch', 'lp:bzr-fastimport', '-r', '307', BZRFASTIMPORT_STABLE)
+
+    if not os.path.exists(BZRFASTIMPORT_HEAD):
+      cd(VENDOR)
+      bzr('branch', 'lp:bzr-fastimport', BZRFASTIMPORT_HEAD)
+
     python_path = ('PYTHONPATH' in os.environ
                    and os.environ['PYTHONPATH']
                    or '')
     if not python_path.startswith(PYFASTIMPORT):
       os.environ['PYTHONPATH'] = PYFASTIMPORT
-    os.environ['BZR_PLUGIN_PATH'] = VENDOR
+    os.environ['BZR_PLUGIN_PATH'] = PLUGINDIR
     os.environ['BZR_PDB'] = '1'
 
   def _setup_bzr_branches(self):
@@ -142,17 +162,17 @@ class GitBzrTest(unittest.TestCase):
       self.fail('no bzr/master branch')
     if '* master' not in branches:
       self.fail('not on master branch')
-    
+
     # Check for files we expect
     self.assertEqual('touch', open('touch.txt').read())
-    
+
     # push to a new branch
     git('checkout', '-b', 'pushed')
     open('touch2.txt', 'w').write('touch3')
     git('add', 'touch2.txt')
     git('commit', '-m', 'touch3 test')
     gitbzr('push', '%s_pushed' % BZRBRANCH)
-    
+
     # do it again
     open('touch2.txt', 'w').write('touch4')
     git('add', 'touch2.txt')
@@ -170,7 +190,7 @@ class GitBzrTest(unittest.TestCase):
     bzr('push', '%s_pushed' % BZRBRANCH)
     cd('%s_git' % BZRBRANCH)
     gitbzr('sync')
-    
+
     # try to push again from git, should fail because we have not merged the
     # changes
     self.assertEquals('touch4', open('touch2.txt').read())
@@ -180,13 +200,13 @@ class GitBzrTest(unittest.TestCase):
     git('pull', '.', '--', 'bzr/pushed')
     self.assertEquals('touch5', open('touch2.txt').read())
     self.assertRaises(subprocess.CalledProcessError, gitbzr, 'push')
-    
+
     # edit a file and try to push
     open('touch2.txt', 'w').write('touch6')
     git('add', 'touch2.txt')
     git('commit', '-m', 'touch6')
     gitbzr('push')
-    
+
     # pull in our bzr branch and make sure we get the change
     cd('%s_branched' % BZRBRANCH)
     bzr('pull')
@@ -205,11 +225,11 @@ class GitBzrTest(unittest.TestCase):
     open('touch2.txt', 'w').write('CLONED')
     git('add', 'touch2.txt')
     git('commit', '-m', 'touched touch2')
-    
+
     # push back to previous bzr branch
     gitbzr('push', '../%s' % BZRBRANCHNAME)
     self.assertEqual('CLONED', open('%s/touch2.txt' % BZRBRANCH).read())
-    
+
     open('touch2.txt', 'w').write('CLONED2')
     git('add', 'touch2.txt')
     git('commit', '-m', 'touched2 touch2')
@@ -221,3 +241,11 @@ class GitBzrTest(unittest.TestCase):
     cd('%s_new' % BZRBRANCH)
     bzr('checkout', '.')
     self.assertEqual('CLONED2', open('%s_new/touch2.txt' % BZRBRANCH).read())
+
+class GitBzrHeadTest(GitBzrTest):
+  def _symlink_plugin(self):
+    try:
+      os.unlink(BZRFASTIMPORT)
+    except Exception:
+      pass
+    os.symlink(BZRFASTIMPORT_HEAD, BZRFASTIMPORT)
