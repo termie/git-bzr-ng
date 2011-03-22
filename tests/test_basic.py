@@ -124,10 +124,8 @@ class GitBzrTest(unittest.TestCase):
     bzr('init', BZRBRANCH)
     cd(BZRBRANCH)
     open('touch.txt', 'w').write('touch')
-    print "hmm?"
     bzr('add', '-v', 'touch.txt')
     bzr('commit', '-v', '-m', 'touch test')
-    print "hmm2?"
     open('touch2.txt', 'w').write('touch2')
     bzr('add', 'touch2.txt')
     bzr('commit', '-m', 'touch2 test')
@@ -220,7 +218,6 @@ class GitBzrTest(unittest.TestCase):
     gitbzr('push')
 
   def test_push_relative_path(self):
-    logging.getLogger().setLevel(logging.DEBUG)
     cd('%s_cloned' % BZRBRANCH)
     open('touch2.txt', 'w').write('CLONED')
     git('add', 'touch2.txt')
@@ -241,6 +238,10 @@ class GitBzrTest(unittest.TestCase):
     cd('%s_new' % BZRBRANCH)
     bzr('checkout', '.')
     self.assertEqual('CLONED2', open('%s_new/touch2.txt' % BZRBRANCH).read())
+
+  def test_import_no_url(self):
+    self.assertRaises(subprocess.CalledProcessError, gitbzr, 'import')
+
 
 class GitBzrHeadTest(GitBzrTest):
   def _symlink_plugin(self):
