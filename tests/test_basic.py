@@ -251,6 +251,43 @@ class GitBzrTest(unittest.TestCase):
   def test_import_no_url(self):
     self.assertRaises(subprocess.CalledProcessError, gitbzr, 'import')
 
+  def test_gitbzr_init_master(self):
+    # make a new git repo
+    INITGIT = os.path.join(TESTDIR, 'init_master_git')
+    INITBZR = os.path.join(TESTDIR, 'init_master_bzr')
+    cd(TESTDIR)
+    git('init', INITGIT)
+    cd(INITGIT)
+    open('touch.txt', 'w').write('touch')
+    git('add', 'touch.txt')
+    git('commit', '-a', '-m', 'touch1')
+    gitbzr('init')
+    gitbzr('push', INITBZR)
+    cd(TESTDIR)
+    bzr('branch', INITBZR, '%s_working' % INITBZR)
+    cd('%s_working' % INITBZR)
+    self.assertEquals('touch', open('touch.txt').read())
+
+  def test_gitbzr_init_branch(self):
+    # make a new git repo
+    INITGIT = os.path.join(TESTDIR, 'init_branch_git')
+    INITBZR = os.path.join(TESTDIR, 'init_branch_bzr')
+    cd(TESTDIR)
+    git('init', INITGIT)
+    cd(INITGIT)
+    open('touch.txt', 'w').write('touch')
+    git('add', 'touch.txt')
+    git('commit', '-a', '-m', 'touch1')
+    git('checkout', '-b', 'new_branch')
+    open('touch.txt', 'w').write('touch2')
+    git('commit', '-a', '-m', 'touch2')
+    gitbzr('init')
+    gitbzr('push', INITBZR)
+    cd(TESTDIR)
+    bzr('branch', INITBZR, '%s_working' % INITBZR)
+    cd('%s_working' % INITBZR)
+    self.assertEquals('touch2', open('touch.txt').read())
+
 
 class GitBzrHeadTest(GitBzrTest):
   def _symlink_plugin(self):

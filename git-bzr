@@ -337,11 +337,8 @@ def init_repo(cl=None):
 
 
 def cmd_init(args):
-  parser = optparse.OptionParser(usage='git bzr init [<target>]')
-  parser.description = ('Init a new bzr tracking branch (bzr/*)')
-  parser.add_option('--parent_branch', action='store', dest='parent_branch',
-                    default='master',
-                    help='use this branch as the parent branch')
+  parser = optparse.OptionParser(usage='git bzr init')
+  parser.description = ('Init a new bzr tracking branch based on master')
   (options, args) = parser.parse_args(args)
 
   cl = Changelist()
@@ -349,12 +346,7 @@ def cmd_init(args):
   # Ensure our directories exist
   init_repo(cl)
 
-  # TODO(termie): command-line validation
-  if len(args) == 1:
-    branch = args[0]
-  else:
-    branch = cl.branch()
-
+  branch = 'master'
   bzr_ref = bzr_ref_name(branch)
 
   if branch_exists(bzr_ref):
@@ -362,15 +354,7 @@ def cmd_init(args):
 
   bzr(['init', cl.bzr_dir(branch)])
 
-  if branch == "master":
-    parent_branch = None
-  else:
-    parent_branch = options.parent_branch
-  export_git(branch, cl=cl, parent_branch=parent_branch)
-
-  if not branch_exists(branch):
-    # TODO(termie): does it make sense for this to be a --track?
-    git(['branch', branch, options.parent_branch])
+  export_git(branch, cl=cl)
 
   # TODO(termie): does it make sense for this to be a --track?
   git(['branch', bzr_ref, branch])
