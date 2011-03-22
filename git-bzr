@@ -501,6 +501,9 @@ def cmd_import(args):
   (options, args) = parser.parse_args(args)
 
   # TODO(termie): command-line validation
+  if not len(args):
+    die('You must provide an URL.')
+
   url = args[0]
   if len(args) == 1:
     target = url.rpartition(':')[2].rpartition('/')[2]
