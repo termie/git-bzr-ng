@@ -86,8 +86,8 @@ Requirements
 ------------
 
 * git (some recentish version)
-* bzr 2.2 (pip install bzr==2.2)
-* bzr-fastimport (bzr branch lp:bzr-fastimport)
+* bzr 2.2 or bzr 2.3.0
+* bzr-fastimport 0.10 http://launchpad.net/bzr-fastimport/trunk/0.10.0/+download/bzr-fastimport-0.10.0.tar.gz
 * python-fastimport, for bzr-fastimport (bzr branch lp:python-fastimport)
 * You also need to put the git-bzr script somewhere in your path
 
@@ -99,9 +99,9 @@ If you see
 
 `AttributeError: 'BTreeBuilder' object has no attribute '_find_ancestors'`
 
-it means you have the bzr 2.3 beta installed, git-bzr-ng currently only
-works unpatched with bzr 2.2. It is possible to patch bzr 2.3 to correct
-the issue, but 2.2 is easy to install with pip.
+it means you have the bzr 2.3 beta installed, git-bzr-ng currently works
+unpatched with bzr 2.2 and bzr 2.3.0. It is possible to patch bzr 2.3b to
+correct the issue, but 2.3.0 is easy to install with pip.
 
 
 Additionally there is a command `git bzr clear` that will wipe out the

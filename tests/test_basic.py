@@ -19,6 +19,7 @@ PYFASTIMPORT=os.path.join(VENDOR, 'python-fastimport')
 PLUGINDIR=os.path.join(VENDOR, 'plugins')
 BZRFASTIMPORT=os.path.join(PLUGINDIR, 'fastimport')
 BZRFASTIMPORT_STABLE=os.path.join(VENDOR, 'fastimport_stable')
+BZRFASTIMPORT_STABLE_TARBALL=os.path.join(VENDOR, 'bzr-fastimport-0.10.0')
 BZRFASTIMPORT_HEAD=os.path.join(VENDOR, 'fastimport_head')
 
 
@@ -107,6 +108,14 @@ class GitBzrTest(unittest.TestCase):
     if not os.path.exists(BZRFASTIMPORT_HEAD):
       cd(VENDOR)
       bzr('branch', 'lp:bzr-fastimport', BZRFASTIMPORT_HEAD)
+
+    if not os.path.exists(BZRFASTIMPORT_STABLE_TARBALL):
+      cd(VENDOR)
+      check_output(['curl', '-O', '-L',
+                    'http://launchpad.net/bzr-fastimport/trunk/'
+                    '0.10.0/+download/bzr-fastimport-0.10.0.tar.gz'
+                    ])
+      check_output(['tar', '-xzf', 'bzr-fastimport-0.10.0.tar.gz'])
 
     python_path = ('PYTHONPATH' in os.environ
                    and os.environ['PYTHONPATH']
@@ -250,3 +259,12 @@ class GitBzrHeadTest(GitBzrTest):
     except Exception:
       pass
     os.symlink(BZRFASTIMPORT_HEAD, BZRFASTIMPORT)
+
+
+class GitBzrStableTarballTest(GitBzrTest):
+  def _symlink_plugin(self):
+    try:
+      os.unlink(BZRFASTIMPORT)
+    except Exception:
+      pass
+    os.symlink(BZRFASTIMPORT_STABLE_TARBALL, BZRFASTIMPORT)
