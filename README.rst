@@ -95,6 +95,12 @@ Requirements
 Troubleshooting
 ---------------
 
+For other issues, please see: http://github.com/termie/git-bzr-ng/issues
+
+------------------
+don't use bzr 2.3b
+------------------
+
 If you see
 
 `AttributeError: 'BTreeBuilder' object has no attribute '_find_ancestors'`
@@ -103,12 +109,23 @@ it means you have the bzr 2.3 beta installed, git-bzr-ng currently works
 unpatched with bzr 2.2 and bzr 2.3.0. It is possible to patch bzr 2.3b to
 correct the issue, but 2.3.0 is easy to install with pip.
 
+-----------------------------------
+tests run against multiple versions
+-----------------------------------
+
+If you are running the tests (`python run_tests.py`) keep in mind that one
+set of tests is actually running against bzr-fastimport's HEAD so it doesn't
+always work, so if you see failures check that they are in GitBzrTest or
+GitBzrStableTarballTest first.
+
+
+----------------------------------
+when all else fails: git bzr clear
+----------------------------------
 
 Additionally there is a command `git bzr clear` that will wipe out the
 bzr-related information for a given branch so if you have somehow found
 yourself in a bind, it should help you wipe the slate to try again.
-
-For other issues, please see: http://github.com/termie/git-bzr-ng/issues
 
 
 Kind thanks to
