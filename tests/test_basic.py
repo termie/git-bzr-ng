@@ -21,6 +21,19 @@ BZRFASTIMPORT=os.path.join(PLUGINDIR, 'fastimport')
 BZRFASTIMPORT_STABLE=os.path.join(VENDOR, 'fastimport_stable')
 BZRFASTIMPORT_STABLE_TARBALL=os.path.join(VENDOR, 'bzr-fastimport-0.10.0')
 BZRFASTIMPORT_HEAD=os.path.join(VENDOR, 'fastimport_head')
+BZRPATH = os.path.join(VENDOR, 'bzr-%s')
+BZR = os.path.join(VENDOR, 'bzr')
+
+
+VERSIONS = [
+    ('2.2', '2.2.0'),
+    ('2.2', '2.2.1'),
+    ('2.2', '2.2.2'),
+    ('2.2', '2.2.3'),
+    ('2.2', '2.2.4'),
+    ('2.3', '2.3.0'),
+    ('2.3', '2.3.1')
+    ]
 
 
 # From python 2.7
@@ -78,6 +91,9 @@ def rmdir(path):
 
 
 class GitBzrTest(unittest.TestCase):
+  BZR = BZRPATH % '2.3.1'
+  BZRFASTIMPORT = BZRFASTIMPORT_STABLE
+
   def setUp(self):
     self._ensure_checkouts()
     self._symlink_plugin()
@@ -91,9 +107,41 @@ class GitBzrTest(unittest.TestCase):
       os.unlink(BZRFASTIMPORT)
     except Exception:
       pass
-    os.symlink(BZRFASTIMPORT_STABLE, BZRFASTIMPORT)
+    os.symlink(self.BZRFASTIMPORT, BZRFASTIMPORT)
+
+  def _symlink_bzr(self, force=None):
+    try:
+      os.unlink(BZR)
+    except Exception:
+      pass
+    path = force and force or self.BZR
+    os.symlink(path, BZR)
 
   def _ensure_checkouts(self):
+    exec_path = ('PATH' in os.environ
+                 and os.environ['PATH']
+                 or '')
+    if not exec_path.startswith(BZR):
+      os.environ['PATH'] = '%s:%s' % (BZR, exec_path)
+
+    download_url = 'http://launchpad.net/bzr/%s/%s/+download/bzr-%s.tar.gz'
+    tarball = 'bzr-%s.tar.gz'
+    for v in VERSIONS:
+      if not os.path.exists(BZRPATH % v[1]):
+        cd(VENDOR)
+        check_output(['curl', '-O', '-L',
+                      download_url % (v[0], v[1], v[1])
+                      ])
+        check_output(['tar', '-xzf', tarball % v[1]])
+
+    # we need a functional bzr on our path to get anything else
+    self._symlink_bzr(BZRPATH % '2.3.1')
+
+    bzr_head = BZRPATH % 'head'
+    if not os.path.exists(bzr_head):
+      cd(VENDOR)
+      bzr('branch', 'lp:bzr', BZRPATH % 'head')
+
     if not os.path.exists(PYFASTIMPORT):
       cd(VENDOR)
       bzr('branch', 'lp:python-fastimport')
@@ -121,7 +169,8 @@ class GitBzrTest(unittest.TestCase):
                    and os.environ['PYTHONPATH']
                    or '')
     if not python_path.startswith(PYFASTIMPORT):
-      os.environ['PYTHONPATH'] = PYFASTIMPORT
+      os.environ['PYTHONPATH'] = '%s:%s' % (PYFASTIMPORT, BZR)
+
     os.environ['BZR_PLUGIN_PATH'] = PLUGINDIR
     os.environ['BZR_PDB'] = '1'
 
@@ -290,18 +339,41 @@ class GitBzrTest(unittest.TestCase):
 
 
 class GitBzrHeadTest(GitBzrTest):
-  def _symlink_plugin(self):
-    try:
-      os.unlink(BZRFASTIMPORT)
-    except Exception:
-      pass
-    os.symlink(BZRFASTIMPORT_HEAD, BZRFASTIMPORT)
+  BZRFASTIMPORT = BZRFASTIMPORT_HEAD
+
+
+class GitBzrHeadHeadTest(GitBzrTest):
+  BZR = BZRPATH % 'head'
+  BZRFASTIMPORT = BZRFASTIMPORT_HEAD
 
 
 class GitBzrStableTarballTest(GitBzrTest):
-  def _symlink_plugin(self):
-    try:
-      os.unlink(BZRFASTIMPORT)
-    except Exception:
-      pass
-    os.symlink(BZRFASTIMPORT_STABLE_TARBALL, BZRFASTIMPORT)
+  BZRFASTIMPORT = BZRFASTIMPORT_STABLE_TARBALL
+
+
+class GitBzrStable_2_2_0(GitBzrStableTarballTest):
+  BZR = BZRPATH % '2.2.0'
+
+
+class GitBzrStable_2_2_1(GitBzrStableTarballTest):
+  BZR = BZRPATH % '2.2.1'
+
+
+class GitBzrStable_2_2_2(GitBzrStableTarballTest):
+  BZR = BZRPATH % '2.2.2'
+
+
+class GitBzrStable_2_2_3(GitBzrStableTarballTest):
+  BZR = BZRPATH % '2.2.3'
+
+
+class GitBzrStable_2_2_4(GitBzrStableTarballTest):
+  BZR = BZRPATH % '2.2.4'
+
+
+class GitBzrStable_2_3_0(GitBzrStableTarballTest):
+  BZR = BZRPATH % '2.3.0'
+
+
+class GitBzrStable_2_2_0(GitBzrStableTarballTest):
+  BZR = BZRPATH % '2.2.0'
