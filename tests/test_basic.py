@@ -95,17 +95,14 @@ def rmdir(path):
     pass
 
 
-class GitBzrTest(unittest.TestCase):
+class SetupVendorOnly(object):
   BZR = BZRPATH % '2.3.1'
   BZRFASTIMPORT = BZRFASTIMPORT_STABLE
 
-  def setUp(self):
+  def setup_vendor(self):
+    logging.getLogger().setLevel(logging.INFO)
     self._ensure_checkouts()
     self._symlink_plugin()
-    self._setup_bzr_branches()
-
-  def tearDown(self):
-    pass
 
   def _symlink_plugin(self):
     try:
@@ -133,6 +130,7 @@ class GitBzrTest(unittest.TestCase):
     tarball = 'bzr-%s.tar.gz'
     for v in VERSIONS:
       if not os.path.exists(BZRPATH % v[1]):
+        logging.info('Downloading %s', download_url % (v[0], v[1], v[1]))
         cd(VENDOR)
         check_output(['curl', '-O', '-L',
                       download_url % (v[0], v[1], v[1])
@@ -144,10 +142,12 @@ class GitBzrTest(unittest.TestCase):
 
     bzr_head = BZRPATH % 'head'
     if not os.path.exists(bzr_head):
+      logging.info('Getting HEAD of bzr')
       cd(VENDOR)
       bzr('branch', 'lp:bzr', BZRPATH % 'head')
 
     if not os.path.exists(PYFASTIMPORT):
+      logging.info('Getting a HEAD of python-fastimport')
       cd(VENDOR)
       bzr('branch', 'lp:python-fastimport')
 
@@ -155,14 +155,17 @@ class GitBzrTest(unittest.TestCase):
       os.mkdir(PLUGINDIR)
 
     if not os.path.exists(BZRFASTIMPORT_STABLE):
+      logging.info('Getting revision 307 of bzr-fastimport')
       cd(VENDOR)
       bzr('branch', 'lp:bzr-fastimport', '-r', '307', BZRFASTIMPORT_STABLE)
 
     if not os.path.exists(BZRFASTIMPORT_HEAD):
+      logging.info('Getting HEAD of bzr-fastimport')
       cd(VENDOR)
       bzr('branch', 'lp:bzr-fastimport', BZRFASTIMPORT_HEAD)
 
     if not os.path.exists(BZRFASTIMPORT_STABLE_TARBALL):
+      logging.info('Downloading bzr-fastimport version 0.10')
       cd(VENDOR)
       check_output(['curl', '-O', '-L',
                     'http://launchpad.net/bzr-fastimport/trunk/'
@@ -178,6 +181,20 @@ class GitBzrTest(unittest.TestCase):
 
     os.environ['BZR_PLUGIN_PATH'] = PLUGINDIR
     os.environ['BZR_PDB'] = '1'
+
+
+class GitBzrTest(SetupVendorOnly, unittest.TestCase):
+  BZR = BZRPATH % '2.3.1'
+  BZRFASTIMPORT = BZRFASTIMPORT_STABLE
+
+  def setUp(self):
+    #SetupVendorOnly.setUp(self)
+    self._ensure_checkouts()
+    self._symlink_plugin()
+    self._setup_bzr_branches()
+
+  def tearDown(self):
+    pass
 
   def _setup_bzr_branches(self):
     memo = '%s_%s_%s' % (TESTDIR, self.__class__.__name__, TIMESTAMP)
@@ -213,7 +230,6 @@ class GitBzrTest(unittest.TestCase):
       for path in old_memos:
         shutil.rmtree(path)
       shutil.copytree(TESTDIR, memo)
-
 
   def test_all(self):
     """Test most of the functionality.
