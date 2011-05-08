@@ -111,6 +111,23 @@ def branch_exists(branch):
   return False
 
 
+def bzr_tags():
+  tags = bzr(['tags'])
+  tags = tags.split('\n')
+  if tags:
+    return [x.split()[0] for x in tags if x.strip()]
+  return tags
+
+
+def strip_bzr_tags(cl, branch):
+    curdir = os.getcwd()
+    os.chdir(cl.bzr_dir(branch))
+    tags =  bzr_tags()
+    for x in tags:
+      bzr(['tag', '--delete', x])
+    os.chdir(curdir)
+
+
 class LoggingPipe(object):
   def __init__(self, pipe, name=''):
     self.pipe = pipe
@@ -211,9 +228,7 @@ def unrewrite_bzr_marks_file(filename):
   f = open(filename + '-tmp', 'w')
   for line in open(filename):
     logging.debug('- %s', line.strip())
-    #if line.startswith(':'):
     line = line.lstrip(':')
-    #line = line[1:]
     logging.debug('+ %s', line.strip())
     f.write(line)
   f.close()
@@ -365,6 +380,8 @@ def cmd_init(args):
 def cmd_clone(args):
   parser = optparse.OptionParser(usage='git bzr clone <url> [<target>]')
   parser.description = ('Effectively a bzr branch <url>')
+  parser.add_option('--strip_tags', action='store_true', dest='strip_tags',
+                    help='strip tags from bzr when importing')
   (options, args) = parser.parse_args(args)
 
   # TODO(termie): command-line validation
@@ -393,7 +410,11 @@ def cmd_clone(args):
   # Ensure our directories exist
   init_repo(cl)
 
-  cmd_import([url, branch])
+  args = [url, branch]
+  if options.strip_tags:
+    args = ['--strip_tags'] + args
+
+  cmd_import(args)
 
   git(['checkout', branch])
 
@@ -527,6 +548,8 @@ def cmd_pull(args):
 def cmd_import(args):
   parser = optparse.OptionParser(usage='git bzr import <url> <new_branch>')
   parser.description = ('Effectively a bzr branch <url>, but git-style')
+  parser.add_option('--strip_tags', action='store_true', dest='strip_tags',
+                    help='strip tags from bzr when importing')
   (options, args) = parser.parse_args(args)
 
   # TODO(termie): command-line validation
@@ -557,6 +580,9 @@ def cmd_import(args):
 
   # Do the actual bzr fetch
   bzr(['branch', url, cl.bzr_dir(branch)])
+
+  if options.strip_tags:
+    strip_bzr_tags(cl, branch)
 
   # Fast export from
   export_bzr(bzr_ref, cl=cl)

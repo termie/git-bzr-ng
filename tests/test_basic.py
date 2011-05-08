@@ -187,6 +187,7 @@ class GitBzrTest(unittest.TestCase):
     open('touch2.txt', 'w').write('touch2')
     bzr('add', 'touch2.txt')
     bzr('commit', '-m', 'touch2 test')
+    bzr('tag', 'some_tag')
 
     # make another branch to test import later
     cd(TESTDIR)
@@ -299,6 +300,35 @@ class GitBzrTest(unittest.TestCase):
 
   def test_import_no_url(self):
     self.assertRaises(subprocess.CalledProcessError, gitbzr, 'import')
+
+  def test_import_strip_tags(self):
+    # assert that the imported repo has our tag
+    cd(TESTDIR)
+    cd('%s_cloned' % BZRBRANCHNAME)
+    rv = git('tag')
+    self.assert_('some_tag' in rv)
+
+    # add an invalid tag and make sure it doesn't get imported
+    cd('%s_imported' % BZRBRANCH)
+    bzr('tag', 'some~invalid!tag')
+    cd(TESTDIR)
+    cd('%s_cloned' % BZRBRANCHNAME)
+
+    # the first try should fail due to an invalid tag
+    self.assertRaises(subprocess.CalledProcessError,
+                      gitbzr,
+                      'import',
+                      '%s_imported' % BZRBRANCH,
+                      'import_fail')
+    gitbzr('import', '--strip_tags', '%s_imported' % BZRBRANCH, 'import_win')
+    rv = git('tag')
+    self.assert_('some~invalid!tag' not in rv)
+
+    # test that clone supports the flag also
+    cd(TESTDIR)
+    self.assertRaises(subprocess.CalledProcessError,
+                      gitbzr, 'clone', '%s_imported' % BZRBRANCH, 'import_fail')
+    gitbzr('clone', '--strip_tags', '%s_imported' % BZRBRANCH, 'import_win')
 
   def test_gitbzr_init_master(self):
     # make a new git repo
