@@ -542,7 +542,8 @@ def cmd_pull(args):
   cmd_sync(args)
   cl = Changelist()
   bzr_ref = get_cfg('%s.bzr' % cl.branch())
-  git(['pull', '--rebase', '.', '--', bzr_ref])
+  #git(['pull', '--rebase', '.', '--', bzr_ref])
+  git(['pull', '.', '--', bzr_ref])
 
 
 def cmd_import(args):
