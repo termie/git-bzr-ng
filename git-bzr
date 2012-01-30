@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # git-cl -- a git-command for integrating reviews on Rietveld
 # Copyright (C) 2008 Evan Martin <martine@danga.com>
 # Copyright (C) 2010 Andy Smith <andy@term.ie>
