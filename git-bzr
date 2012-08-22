@@ -455,7 +455,7 @@ def cmd_push(args):
   else:
     known_upstream = None
 
-  if known_upstream and (not upstream or upstream == known_upstream):
+  if not options.overwrite and known_upstream and (not upstream or upstream == known_upstream):
     upstream = known_upstream
 
     # Sync first
