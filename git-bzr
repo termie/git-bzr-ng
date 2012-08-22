@@ -257,7 +257,7 @@ def export_bzr(bzr_ref, cl=None, overwrite=False):
     bzr_import_arg = git_import_arg = []
 
   if overwrite:
-    git(['branch', '-D', bzr_ref])
+    git(['branch', '-D', bzr_ref], error_ok=True)
 
   # NOTE(termie): this happens in reverse because we're piping
   git_proc = git(['fast-import'] + git_import_arg + [
