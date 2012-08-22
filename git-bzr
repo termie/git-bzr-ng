@@ -30,7 +30,7 @@ def run_command(cmd, error_ok=False, error_message=None, exit_code=False,
                redirect_stdout=True, return_proc=False, stdout=None,
                stdin=None):
   # Useful for debugging:
-  logging.debug(' '.join(cmd))
+  logging.info(' '.join(cmd))
   if redirect_stdout and stdout is None:
     stdout = subprocess.PIPE
 
