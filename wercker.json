@@ -1,4 +1,5 @@
 {
+    "lang": "python",
     "customSteps": {
       "install_test_dependencies": [
         "easy_install pip",
