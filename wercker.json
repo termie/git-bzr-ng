@@ -1,7 +1,4 @@
 {
-    "preInstallScripts": [
-      //"sudo DEBIAN_FRONTEND=noninteractive apt-get install bzr"
-    ],
     "customSteps": {
       "install_test_dependencies": [
         "pip install bzr",
