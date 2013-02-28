@@ -1,6 +1,7 @@
 {
     "customSteps": {
       "install_test_dependencies": [
+        "easy_install pip",
         "pip install bzr",
         "pip install nose"
       ],
