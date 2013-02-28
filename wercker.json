@@ -2,12 +2,12 @@
     "preInstallScripts": [
       "sudo DEBIAN_FRONTEND=noninteractive apt-get install bzr"
     ],
-    "customSteps": [
+    "customSteps": {
       "install_test_dependencies": [
         "pip install nose"
       ],
       "run_tests": [
         "run_tests.sh"
       ]
-    ]
+    }
 }
