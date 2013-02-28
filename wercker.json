@@ -1,5 +1,6 @@
 {
     "lang": "python",
+    "version": "2.7",
     "customSteps": {
       "install_test_dependencies": [
         "easy_install pip",
