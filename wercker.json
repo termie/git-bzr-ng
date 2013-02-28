@@ -1,9 +1,9 @@
 {
-    "lang": "python",
-    "version": "2.7",
+    "preInstallScripts": [
+        "sudo DEBIAN_FRONTEND=noninteractive apt-get -y install python-pip",
+    ],
     "customSteps": {
       "install_test_dependencies": [
-        "easy_install pip",
         "pip install bzr",
         "pip install nose"
       ],
