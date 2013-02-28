@@ -1,7 +1,7 @@
 {
     "preInstallScripts": [
         "sudo DEBIAN_FRONTEND=noninteractive apt-get update",
-        "sudo DEBIAN_FRONTEND=noninteractive apt-get -y install python-pip"
+        "sudo DEBIAN_FRONTEND=noninteractive apt-get -y install build-essential python-pip"
     ],
     "customSteps": {
       "install_test_dependencies": [
