@@ -388,7 +388,7 @@ def cmd_clone(args):
   url = args[0]
 
   if len(args) == 1:
-    target = url.rpartition(':')[2].rpartition('/')[2]
+    target = url.rpartition(':')[2].rstrip('/').rpartition('/')[2]
   else:
     target = args[1]
 
